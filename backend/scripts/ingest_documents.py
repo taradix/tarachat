@@ -1,0 +1,360 @@
+#!/usr/bin/env python3
+"""
+Document ingestion script for managing the vector store.
+Supports both text (.txt) and PDF (.pdf) files.
+
+Usage:
+    # Add documents from directory (text files)
+    python scripts/ingest_documents.py add --dir data/documents/
+
+    # Add PDF documents from directory
+    python scripts/ingest_documents.py add --dir data/documents/ --pattern "*.pdf"
+
+    # Add both text and PDF files
+    python scripts/ingest_documents.py add --dir data/documents/ --pattern "*.*"
+
+    # Add a single text document
+    python scripts/ingest_documents.py add --file data/mydoc.txt --id mydoc
+
+    # Add a single PDF document
+    python scripts/ingest_documents.py add --file data/report.pdf --id report
+
+    # Add with metadata (works for both text and PDF)
+    python scripts/ingest_documents.py add --file data/mydoc.pdf --id mydoc --metadata '{"author": "John", "date": "2024"}'
+
+    # Update an existing document (auto-detects file type)
+    python scripts/ingest_documents.py update --id mydoc --file data/mydoc_v2.pdf
+
+    # Delete a document
+    python scripts/ingest_documents.py delete --id mydoc
+
+    # List all documents
+    python scripts/ingest_documents.py list
+
+    # Clear all documents
+    python scripts/ingest_documents.py clear
+
+Note: PDF files are automatically processed to extract text content and metadata
+      (title, author, subject, creator, number of pages).
+"""
+import sys
+import os
+import json
+import argparse
+from pathlib import Path
+from typing import List, Dict, Optional
+import logging
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from app.rag import rag_system
+from app.pdf_processor import pdf_processor
+from langchain.docstore.document import Document
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+class DocumentManager:
+    """Manages document ingestion and updates in the vector store."""
+
+    def __init__(self):
+        self.rag_system = rag_system
+        self.metadata_file = Path(rag_system.settings.vector_store_path) / "documents_metadata.json"
+        self.documents_metadata = self._load_metadata()
+
+    def _read_file_content(self, file_path: Path) -> tuple[str, Dict]:
+        """
+        Read content from a file, supporting both text and PDF formats.
+
+        Args:
+            file_path: Path to the file to read
+
+        Returns:
+            Tuple of (content, extracted_metadata)
+        """
+        file_extension = file_path.suffix.lower()
+
+        if file_extension == '.pdf':
+            # Read PDF using pdf_processor
+            with open(file_path, 'rb') as f:
+                pdf_bytes = f.read()
+            content, pdf_metadata = pdf_processor.extract_text_from_pdf(pdf_bytes)
+            return content, pdf_metadata
+        else:
+            # Read as text file
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            return content, {}
+
+    def _load_metadata(self) -> Dict:
+        """Load document metadata from JSON file."""
+        if self.metadata_file.exists():
+            with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        return {}
+
+    def _save_metadata(self):
+        """Save document metadata to JSON file."""
+        self.metadata_file.parent.mkdir(parents=True, exist_ok=True)
+        with open(self.metadata_file, 'w', encoding='utf-8') as f:
+            json.dump(self.documents_metadata, f, indent=2, ensure_ascii=False)
+
+    def add_document(self, doc_id: str, content: str, metadata: Optional[Dict] = None):
+        """Add a new document to the vector store."""
+        if doc_id in self.documents_metadata:
+            logger.warning(f"Document '{doc_id}' already exists. Use 'update' to modify it.")
+            return False
+
+        # Prepare metadata
+        doc_metadata = metadata or {}
+        doc_metadata['doc_id'] = doc_id
+
+        # Add to vector store
+        logger.info(f"Adding document '{doc_id}' to vector store...")
+        self.rag_system.add_documents([content], [doc_metadata])
+
+        # Save metadata
+        self.documents_metadata[doc_id] = {
+            'metadata': doc_metadata,
+            'content_preview': content[:200] + '...' if len(content) > 200 else content,
+            'content_length': len(content)
+        }
+        self._save_metadata()
+
+        logger.info(f"✓ Document '{doc_id}' added successfully")
+        return True
+
+    def update_document(self, doc_id: str, content: str, metadata: Optional[Dict] = None):
+        """Update an existing document by deleting and re-adding it."""
+        if doc_id not in self.documents_metadata:
+            logger.error(f"Document '{doc_id}' not found. Use 'add' to create it.")
+            return False
+
+        logger.info(f"Updating document '{doc_id}'...")
+
+        # Delete old version
+        self.delete_document(doc_id, silent=True)
+
+        # Add new version
+        doc_metadata = metadata or self.documents_metadata.get(doc_id, {}).get('metadata', {})
+        return self.add_document(doc_id, content, doc_metadata)
+
+    def delete_document(self, doc_id: str, silent: bool = False):
+        """Delete a document from the vector store."""
+        if doc_id not in self.documents_metadata:
+            if not silent:
+                logger.error(f"Document '{doc_id}' not found")
+            return False
+
+        logger.info(f"Deleting document '{doc_id}'...")
+
+        # FAISS doesn't support deletion, so we need to rebuild without this document
+        # This is a limitation - for production, consider using a different vector store
+        logger.warning("FAISS doesn't support direct deletion. Rebuilding vector store...")
+
+        # Remove from metadata
+        del self.documents_metadata[doc_id]
+        self._save_metadata()
+
+        # Rebuild vector store without this document
+        self._rebuild_vector_store()
+
+        if not silent:
+            logger.info(f"✓ Document '{doc_id}' deleted successfully")
+        return True
+
+    def _rebuild_vector_store(self):
+        """Rebuild the entire vector store from metadata."""
+        logger.info("Rebuilding vector store...")
+
+        # Create new empty vector store
+        dummy_doc = Document(page_content="Initial document", metadata={})
+        from langchain_community.vectorstores import FAISS
+        self.rag_system.vector_store = FAISS.from_documents([dummy_doc], self.rag_system.embeddings)
+
+        # Re-add all documents from metadata
+        # Note: This requires storing original content, which we don't have in current implementation
+        logger.warning("Full rebuild requires original document content. Consider implementing content storage.")
+        logger.info("✓ Vector store cleared. Re-add documents using the 'add' command.")
+
+    def list_documents(self):
+        """List all documents in the vector store."""
+        if not self.documents_metadata:
+            logger.info("No documents in vector store")
+            return
+
+        logger.info(f"\n{'='*80}")
+        logger.info(f"Documents in vector store: {len(self.documents_metadata)}")
+        logger.info(f"{'='*80}\n")
+
+        for doc_id, info in self.documents_metadata.items():
+            logger.info(f"ID: {doc_id}")
+            logger.info(f"  Length: {info['content_length']} characters")
+            logger.info(f"  Metadata: {info['metadata']}")
+            logger.info(f"  Preview: {info['content_preview']}")
+            logger.info("")
+
+    def clear_all(self):
+        """Clear all documents from the vector store."""
+        logger.warning("This will delete ALL documents from the vector store!")
+        response = input("Are you sure? (yes/no): ")
+
+        if response.lower() != 'yes':
+            logger.info("Cancelled")
+            return
+
+        logger.info("Clearing vector store...")
+
+        # Create new empty vector store
+        dummy_doc = Document(page_content="Initial document", metadata={})
+        from langchain_community.vectorstores import FAISS
+        self.rag_system.vector_store = FAISS.from_documents([dummy_doc], self.rag_system.embeddings)
+
+        # Save empty vector store
+        vector_store_path = Path(self.rag_system.settings.vector_store_path)
+        vector_store_path.mkdir(parents=True, exist_ok=True)
+        self.rag_system.vector_store.save_local(str(vector_store_path))
+
+        # Clear metadata
+        self.documents_metadata = {}
+        self._save_metadata()
+
+        logger.info("✓ Vector store cleared")
+
+    def add_from_directory(self, directory: Path, pattern: str = "*.txt"):
+        """Add all documents from a directory. Supports .txt and .pdf files."""
+        files = list(directory.glob(pattern))
+
+        if not files:
+            logger.warning(f"No files matching '{pattern}' found in {directory}")
+            return
+
+        logger.info(f"Found {len(files)} files to ingest")
+
+        for file_path in files:
+            doc_id = file_path.stem  # Use filename without extension as ID
+
+            try:
+                # Read file content using helper method (supports PDF and text)
+                content, extracted_metadata = self._read_file_content(file_path)
+
+                # Combine extracted metadata with source information
+                metadata = {
+                    'source': str(file_path),
+                    'filename': file_path.name,
+                    **extracted_metadata
+                }
+
+                self.add_document(doc_id, content, metadata)
+            except Exception as e:
+                logger.error(f"Error processing {file_path}: {e}")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description='Manage documents in the vector store',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__
+    )
+
+    subparsers = parser.add_subparsers(dest='command', help='Command to execute')
+
+    # Add command
+    add_parser = subparsers.add_parser('add', help='Add a new document (supports .txt and .pdf files)')
+    add_parser.add_argument('--file', type=str, help='Path to document file (.txt or .pdf)')
+    add_parser.add_argument('--dir', type=str, help='Directory containing documents')
+    add_parser.add_argument('--pattern', type=str, default='*.txt', help='File pattern for directory (default: *.txt, use "*.pdf" for PDFs or "*.*" for all)')
+    add_parser.add_argument('--id', type=str, help='Document ID (required for --file)')
+    add_parser.add_argument('--metadata', type=str, help='JSON metadata (merged with auto-extracted PDF metadata)')
+
+    # Update command
+    update_parser = subparsers.add_parser('update', help='Update an existing document')
+    update_parser.add_argument('--id', type=str, required=True, help='Document ID')
+    update_parser.add_argument('--file', type=str, required=True, help='Path to new document file')
+    update_parser.add_argument('--metadata', type=str, help='JSON metadata')
+
+    # Delete command
+    delete_parser = subparsers.add_parser('delete', help='Delete a document')
+    delete_parser.add_argument('--id', type=str, required=True, help='Document ID')
+
+    # List command
+    subparsers.add_parser('list', help='List all documents')
+
+    # Clear command
+    subparsers.add_parser('clear', help='Clear all documents')
+
+    args = parser.parse_args()
+
+    if not args.command:
+        parser.print_help()
+        return
+
+    # Initialize RAG system
+    logger.info("Initializing RAG system...")
+    rag_system.initialize()
+
+    # Create document manager
+    manager = DocumentManager()
+
+    # Execute command
+    if args.command == 'add':
+        if args.dir:
+            dir_path = Path(args.dir)
+            if not dir_path.exists():
+                logger.error(f"Directory not found: {args.dir}")
+                return
+            manager.add_from_directory(dir_path, args.pattern)
+        elif args.file:
+            if not args.id:
+                logger.error("--id is required when using --file")
+                return
+
+            file_path = Path(args.file)
+            if not file_path.exists():
+                logger.error(f"File not found: {args.file}")
+                return
+
+            # Read file content using helper method (supports PDF and text)
+            content, extracted_metadata = manager._read_file_content(file_path)
+
+            # Merge user-provided metadata with extracted metadata
+            base_metadata = {'source': str(file_path), 'filename': file_path.name, **extracted_metadata}
+            if args.metadata:
+                user_metadata = json.loads(args.metadata)
+                base_metadata.update(user_metadata)
+
+            manager.add_document(args.id, content, base_metadata)
+        else:
+            logger.error("Either --file or --dir must be specified")
+
+    elif args.command == 'update':
+        file_path = Path(args.file)
+        if not file_path.exists():
+            logger.error(f"File not found: {args.file}")
+            return
+
+        # Read file content using helper method (supports PDF and text)
+        content, extracted_metadata = manager._read_file_content(file_path)
+
+        # Merge extracted metadata with user-provided metadata
+        metadata = extracted_metadata.copy()
+        if args.metadata:
+            user_metadata = json.loads(args.metadata)
+            metadata.update(user_metadata)
+
+        manager.update_document(args.id, content, metadata if metadata else None)
+
+    elif args.command == 'delete':
+        manager.delete_document(args.id)
+
+    elif args.command == 'list':
+        manager.list_documents()
+
+    elif args.command == 'clear':
+        manager.clear_all()
+
+
+if __name__ == "__main__":
+    main()

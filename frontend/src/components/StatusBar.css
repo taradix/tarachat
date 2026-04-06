@@ -1,0 +1,67 @@
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 2rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.status-bar.ready {
+  background-color: #1a3a1a;
+  color: #4ade80;
+}
+
+.status-bar.initializing {
+  background-color: #3a3a1a;
+  color: #fbbf24;
+}
+
+.status-bar.warning {
+  background-color: #3a1a1a;
+  color: #f87171;
+}
+
+.status-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: currentColor;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.status-details {
+  margin-left: auto;
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  .status-bar {
+    border-bottom: 1px solid #e0e0e0;
+  }
+
+  .status-bar.ready {
+    background-color: #dcfce7;
+    color: #16a34a;
+  }
+
+  .status-bar.initializing {
+    background-color: #fef3c7;
+    color: #d97706;
+  }
+
+  .status-bar.warning {
+    background-color: #fee2e2;
+    color: #dc2626;
+  }
+}

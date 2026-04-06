@@ -1,0 +1,34 @@
+name: tarachat
+services:
+  backend:
+    build: backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./backend:/app
+      - backend-cache:/root/.cache
+    networks:
+      - tarachat-network
+
+  frontend:
+    build: frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - tarachat-network
+
+volumes:
+  backend-cache:
+
+networks:
+  tarachat-network:
+    driver: bridge
