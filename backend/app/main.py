@@ -52,7 +52,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -99,10 +99,10 @@ async def chat(request: ChatRequest):
         )
 
     except Exception as e:
-        logger.error(f"Error processing chat request: {e}")
+        logger.error(f"Error processing chat request: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Error processing request: {str(e)}"
+            detail="An internal error occurred. Please try again later."
         )
 
 

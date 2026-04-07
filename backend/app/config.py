@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     # API Configuration
     host: str = "0.0.0.0"
     port: int = 8000
+    cors_origins: str = "http://localhost:5173"
 
     # Model Configuration
     model_name: str = "croissantllm/CroissantLLMChat-v0.1"
