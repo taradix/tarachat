@@ -1,17 +1,16 @@
-#!/usr/bin/env python3
-"""
-Script to scrap the web for documents.
-"""
+"""Scrape the web for documents."""
+
 import asyncio
 import json
+import logging
 from pathlib import Path
-from urllib.parse import urlparse
 
 import aiohttp
 import aiofiles
-import requests
 from bs4 import BeautifulSoup
 from yarl import URL
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_TIMEOUT = 60
@@ -78,33 +77,31 @@ async def download_one(
     filename = url.name
     file_path = target_dir / filename
 
-    print(f"[{url}] Checking remote metadata...")
+    logger.info(f"[{url}] Checking remote metadata...")
     remote_meta = await fetch_remote_metadata(session, url)
     local_meta = load_metadata(file_path)
 
     if file_path.exists() and not has_changed(local_meta, remote_meta):
-        print(f"[{url}] Unchanged, skipping.")
+        logger.info(f"[{url}] Unchanged, skipping.")
         return (url, str(file_path), "skipped")
 
-    print(f"[{url}] Downloading to {file_path}...")
+    logger.info(f"[{url}] Downloading to {file_path}...")
     try:
         async with session.get(url, timeout=timeout) as resp:
             resp.raise_for_status()
 
-            # Stream to disk
             async with aiofiles.open(file_path, "wb") as f:
                 async for chunk in resp.content.iter_chunked(chunk_size):
                     if chunk:
                         await f.write(chunk)
 
-        # Save metadata for next time
         if remote_meta:
             save_metadata(file_path, remote_meta)
 
         return (url, str(file_path), "downloaded")
 
     except Exception as e:
-        print(f"[{url}] ERROR: {e}")
+        logger.error(f"[{url}] ERROR: {e}")
         return (url, None, "error")
 
 
@@ -132,26 +129,22 @@ async def download_many(
 
 
 async def get_urls(url: URL, timeout: int = DEFAULT_TIMEOUT) -> list[URL]:
-    response = requests.get(url)
-    response.raise_for_status()
-
     async with aiohttp.ClientSession() as session:
         async with session.get(url, timeout=timeout) as resp:
             resp.raise_for_status()
-
             data = await resp.json()
-
             html_content = data['contenu']
             soup = BeautifulSoup(html_content, "html.parser")
             return [URL(a.get("href")) for a in soup.find_all("a")]
 
 
-async def main():
-    url = "https://vplus.modellium.com/api/www.notre-dame-du-laus.ca/structure/detail/reglements?localisation=fr"
+async def _async_main():
+    url = URL("https://vplus.modellium.com/api/www.notre-dame-du-laus.ca/structure/detail/reglements?localisation=fr")
     urls = await get_urls(url)
     target_dir = Path("data/documents")
     await download_many(urls, target_dir)
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+def main():
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(_async_main())

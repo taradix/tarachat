@@ -1,67 +1,28 @@
-#!/usr/bin/env python3
-"""
-Document ingestion script for managing the vector store.
+"""Document ingestion for managing the vector store.
+
 Supports both text (.txt) and PDF (.pdf) files.
-
-Usage:
-    # Add documents from directory (text files)
-    python scripts/ingest_documents.py add --dir data/documents/
-
-    # Add PDF documents from directory
-    python scripts/ingest_documents.py add --dir data/documents/ --pattern "*.pdf"
-
-    # Add both text and PDF files
-    python scripts/ingest_documents.py add --dir data/documents/ --pattern "*.*"
-
-    # Add a single text document
-    python scripts/ingest_documents.py add --file data/mydoc.txt --id mydoc
-
-    # Add a single PDF document
-    python scripts/ingest_documents.py add --file data/report.pdf --id report
-
-    # Add with metadata (works for both text and PDF)
-    python scripts/ingest_documents.py add --file data/mydoc.pdf --id mydoc --metadata '{"author": "John", "date": "2024"}'
-
-    # Update an existing document (auto-detects file type)
-    python scripts/ingest_documents.py update --id mydoc --file data/mydoc_v2.pdf
-
-    # Delete a document
-    python scripts/ingest_documents.py delete --id mydoc
-
-    # List all documents
-    python scripts/ingest_documents.py list
-
-    # Clear all documents
-    python scripts/ingest_documents.py clear
-
-Note: PDF files are automatically processed to extract text content and metadata
-      (title, author, subject, creator, number of pages).
 """
-import sys
-import os
+
 import json
 import sqlite3
 import argparse
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import Dict, Optional
 import logging
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+from tarachat.pdf_processor import PDFProcessor, pdf_processor
+from tarachat.rag import RAGSystem, rag_system
 
-from tarachat.rag import rag_system
-from tarachat.pdf_processor import pdf_processor
-
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class DocumentManager:
     """Manages document ingestion and updates in the vector store using SQLite."""
 
-    def __init__(self):
-        self.rag_system = rag_system
-        self.db_path = Path(rag_system.settings.vector_store_path) / "documents.db"
+    def __init__(self, rag: RAGSystem, pdf: PDFProcessor):
+        self.rag = rag
+        self.pdf = pdf
+        self.db_path = Path(rag.settings.vector_store_path) / "documents.db"
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_db()
         self._migrate_from_json()
@@ -82,7 +43,7 @@ class DocumentManager:
 
     def _migrate_from_json(self):
         """Migrate existing documents_metadata.json to SQLite if present."""
-        json_path = Path(self.rag_system.settings.vector_store_path) / "documents_metadata.json"
+        json_path = Path(self.rag.settings.vector_store_path) / "documents_metadata.json"
         if not json_path.exists():
             return
 
@@ -100,20 +61,16 @@ class DocumentManager:
                     conn.commit()
                 logger.info(f"Migrated {len(old_metadata)} documents from JSON to SQLite")
 
-            # Rename old file to mark it as migrated
             json_path.rename(json_path.with_suffix('.json.bak'))
         except Exception as e:
             logger.warning(f"Failed to migrate from JSON: {e}")
 
     def _read_file_content(self, file_path: Path) -> tuple[str, Dict]:
         """Read content from a file, supporting both text and PDF formats."""
-        file_extension = file_path.suffix.lower()
-
-        if file_extension == '.pdf':
+        if file_path.suffix.lower() == '.pdf':
             with open(file_path, 'rb') as f:
                 pdf_bytes = f.read()
-            content, pdf_metadata = pdf_processor.extract_text_from_pdf(pdf_bytes)
-            return content, pdf_metadata
+            return self.pdf.extract_text_from_pdf(pdf_bytes)
         else:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -135,7 +92,7 @@ class DocumentManager:
         doc_metadata['doc_id'] = doc_id
 
         logger.info(f"Adding document '{doc_id}' to vector store...")
-        self.rag_system.add_documents([content], [doc_metadata])
+        self.rag.add_documents([content], [doc_metadata])
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
@@ -155,7 +112,6 @@ class DocumentManager:
 
         logger.info(f"Updating document '{doc_id}'...")
 
-        # Get existing metadata as fallback
         if metadata is None:
             with sqlite3.connect(self.db_path) as conn:
                 row = conn.execute("SELECT metadata FROM documents WHERE id = ?", (doc_id,)).fetchone()
@@ -188,21 +144,19 @@ class DocumentManager:
         """Rebuild the entire vector store from stored content."""
         logger.info("Rebuilding vector store...")
 
-        self.rag_system.vector_store = self.rag_system.create_empty_vector_store()
+        self.rag.vector_store = self.rag.create_empty_vector_store()
 
-        # Re-add all remaining documents from SQLite
         with sqlite3.connect(self.db_path) as conn:
             rows = conn.execute("SELECT id, content, metadata FROM documents").fetchall()
 
         if rows:
             texts = [row[1] for row in rows]
             metadatas = [json.loads(row[2]) for row in rows]
-            self.rag_system.add_documents(texts, metadatas)
+            self.rag.add_documents(texts, metadatas)
             logger.info(f"✓ Rebuilt vector store with {len(rows)} documents")
         else:
-            # Save empty vector store
-            vector_store_path = Path(self.rag_system.settings.vector_store_path)
-            self.rag_system.vector_store.save_local(str(vector_store_path))
+            vector_store_path = Path(self.rag.settings.vector_store_path)
+            self.rag.vector_store.save_local(str(vector_store_path))
             logger.info("✓ Vector store cleared (no documents remaining)")
 
     def list_documents(self):
@@ -237,17 +191,38 @@ class DocumentManager:
 
         logger.info("Clearing vector store...")
 
-        self.rag_system.vector_store = self.rag_system.create_empty_vector_store()
+        self.rag.vector_store = self.rag.create_empty_vector_store()
 
-        vector_store_path= Path(self.rag_system.settings.vector_store_path)
+        vector_store_path = Path(self.rag.settings.vector_store_path)
         vector_store_path.mkdir(parents=True, exist_ok=True)
-        self.rag_system.vector_store.save_local(str(vector_store_path))
+        self.rag.vector_store.save_local(str(vector_store_path))
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("DELETE FROM documents")
             conn.commit()
 
         logger.info("✓ Vector store cleared")
+
+    def init_from_sample_file(self, data_path: Path):
+        """Load sample documents split by blank lines."""
+        if not data_path.exists():
+            logger.warning(f"Sample documents not found at {data_path}")
+            logger.info("Vector store initialized but empty.")
+            return
+
+        logger.info(f"Loading documents from {data_path}...")
+        with open(data_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        documents = [doc.strip() for doc in content.split("\n\n") if doc.strip()]
+        if not documents:
+            logger.info("No documents found in sample file.")
+            return
+
+        logger.info(f"Adding {len(documents)} documents to vector store...")
+        self.rag.add_documents(documents)
+
+        logger.info(f"✓ Loaded {len(documents)} sample documents")
 
     def add_from_directory(self, directory: Path, pattern: str = "*.txt"):
         """Add all documents from a directory. Supports .txt and .pdf files."""
@@ -260,19 +235,15 @@ class DocumentManager:
         logger.info(f"Found {len(files)} files to ingest")
 
         for file_path in files:
-            doc_id = file_path.stem  # Use filename without extension as ID
+            doc_id = file_path.stem
 
             try:
-                # Read file content using helper method (supports PDF and text)
                 content, extracted_metadata = self._read_file_content(file_path)
-
-                # Combine extracted metadata with source information
                 metadata = {
                     'source': str(file_path),
                     'filename': file_path.name,
                     **extracted_metadata
                 }
-
                 self.add_document(doc_id, content, metadata)
             except Exception as e:
                 logger.error(f"Error processing {file_path}: {e}")
@@ -281,35 +252,34 @@ class DocumentManager:
 def main():
     parser = argparse.ArgumentParser(
         description='Manage documents in the vector store',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__
     )
 
     subparsers = parser.add_subparsers(dest='command', help='Command to execute')
 
-    # Add command
-    add_parser = subparsers.add_parser('add', help='Add a new document (supports .txt and .pdf files)')
-    add_parser.add_argument('--file', type=str, help='Path to document file (.txt or .pdf)')
+    add_parser = subparsers.add_parser('add', help='Add a new document')
+    add_parser.add_argument('--file', type=str, help='Path to document file')
     add_parser.add_argument('--dir', type=str, help='Directory containing documents')
-    add_parser.add_argument('--pattern', type=str, default='*.txt', help='File pattern for directory (default: *.txt, use "*.pdf" for PDFs or "*.*" for all)')
+    add_parser.add_argument('--pattern', type=str, default='*.txt', help='File pattern for directory')
     add_parser.add_argument('--id', type=str, help='Document ID (required for --file)')
-    add_parser.add_argument('--metadata', type=str, help='JSON metadata (merged with auto-extracted PDF metadata)')
+    add_parser.add_argument('--metadata', type=str, help='JSON metadata')
 
-    # Update command
     update_parser = subparsers.add_parser('update', help='Update an existing document')
     update_parser.add_argument('--id', type=str, required=True, help='Document ID')
     update_parser.add_argument('--file', type=str, required=True, help='Path to new document file')
     update_parser.add_argument('--metadata', type=str, help='JSON metadata')
 
-    # Delete command
     delete_parser = subparsers.add_parser('delete', help='Delete a document')
     delete_parser.add_argument('--id', type=str, required=True, help='Document ID')
 
-    # List command
     subparsers.add_parser('list', help='List all documents')
-
-    # Clear command
     subparsers.add_parser('clear', help='Clear all documents')
+
+    init_parser = subparsers.add_parser('init', help='Load sample documents')
+    init_parser.add_argument(
+        '--data-path', type=str,
+        default=str(Path(__file__).parent.parent / "data" / "sample_documents.txt"),
+        help='Path to sample documents file',
+    )
 
     args = parser.parse_args()
 
@@ -317,14 +287,13 @@ def main():
         parser.print_help()
         return
 
-    # Initialize RAG system
+    logging.basicConfig(level=logging.INFO)
+
     logger.info("Initializing RAG system...")
     rag_system.initialize()
 
-    # Create document manager
-    manager = DocumentManager()
+    manager = DocumentManager(rag_system, pdf_processor)
 
-    # Execute command
     if args.command == 'add':
         if args.dir:
             dir_path = Path(args.dir)
@@ -342,15 +311,11 @@ def main():
                 logger.error(f"File not found: {args.file}")
                 return
 
-            # Read file content using helper method (supports PDF and text)
             content, extracted_metadata = manager._read_file_content(file_path)
-
-            # Merge user-provided metadata with extracted metadata
             base_metadata = {'source': str(file_path), 'filename': file_path.name, **extracted_metadata}
             if args.metadata:
                 user_metadata = json.loads(args.metadata)
                 base_metadata.update(user_metadata)
-
             manager.add_document(args.id, content, base_metadata)
         else:
             logger.error("Either --file or --dir must be specified")
@@ -361,15 +326,11 @@ def main():
             logger.error(f"File not found: {args.file}")
             return
 
-        # Read file content using helper method (supports PDF and text)
         content, extracted_metadata = manager._read_file_content(file_path)
-
-        # Merge extracted metadata with user-provided metadata
         metadata = extracted_metadata.copy()
         if args.metadata:
             user_metadata = json.loads(args.metadata)
             metadata.update(user_metadata)
-
         manager.update_document(args.id, content, metadata if metadata else None)
 
     elif args.command == 'delete':
@@ -381,6 +342,5 @@ def main():
     elif args.command == 'clear':
         manager.clear_all()
 
-
-if __name__ == "__main__":
-    main()
+    elif args.command == 'init':
+        manager.init_from_sample_file(Path(args.data_path))

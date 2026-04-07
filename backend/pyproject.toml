@@ -39,6 +39,10 @@ check = [
     "ruff>=0.1.0,<1.0.0",
 ]
 
+[project.scripts]
+tarachat-ingest = "tarachat.ingest:main"
+tarachat-scrape = "tarachat.scrape:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
