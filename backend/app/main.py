@@ -92,7 +92,10 @@ async def chat(request: ChatRequest):
             )
 
         # Process the chat message in a thread to avoid blocking the event loop
-        response, sources = await asyncio.to_thread(rag_system.chat, request.message)
+        history = request.conversation_history or []
+        response, sources = await asyncio.to_thread(
+            rag_system.chat, request.message, history
+        )
 
         return ChatResponse(
             response=response,

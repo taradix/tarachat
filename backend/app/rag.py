@@ -141,6 +141,7 @@ class RAGSystem:
         self,
         query: str,
         context_docs: List[Document],
+        conversation_history: List[dict] = None,
         max_length: int = 128
     ) -> str:
         """Generate a response using the LLM with context."""
@@ -148,8 +149,30 @@ class RAGSystem:
         # Prepare context from retrieved documents
         context = "\n\n".join([doc.page_content for doc in context_docs])
 
+        # Build conversation history section
+        history_text = ""
+        if conversation_history:
+            recent = conversation_history[-6:]
+            history_lines = []
+            for msg in recent:
+                role = "Utilisateur" if msg.get("role") == "user" else "Assistant"
+                history_lines.append(f"{role}: {msg.get('content', '')}")
+            history_text = "\n".join(history_lines)
+
         # Create prompt
-        prompt = f"""Voici du contexte pertinent :
+        if history_text:
+            prompt = f"""Voici du contexte pertinent :
+
+{context}
+
+Historique de la conversation :
+{history_text}
+
+Question : {query}
+
+Réponse :"""
+        else:
+            prompt = f"""Voici du contexte pertinent :
 
 {context}
 
@@ -186,7 +209,7 @@ Réponse :"""
 
         return response
 
-    def chat(self, message: str) -> Tuple[str, List[str]]:
+    def chat(self, message: str, conversation_history: List[dict] = None) -> Tuple[str, List[str]]:
         """Process a chat message with RAG."""
 
         # Retrieve relevant documents
@@ -215,7 +238,7 @@ Réponse :"""
 
         # Normal mode: Full LLM generation (slow on CPU)
         logger.info("Using full LLM mode (slow on CPU without GPU)")
-        response = self.generate_response(message, docs)
+        response = self.generate_response(message, docs, conversation_history)
 
         # Extract sources
         sources = [doc.page_content[:100] + "..." for doc in docs]
