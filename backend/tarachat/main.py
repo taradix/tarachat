@@ -27,10 +27,12 @@ def get_rag_system() -> RAGSystem:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle manager for the FastAPI app."""
-    # Startup
+    resolve = app.dependency_overrides.get(get_rag_system, get_rag_system)
+    rag = resolve()
+
     logger.info("Starting up application...")
     try:
-        rag_system.initialize()
+        rag.initialize()
         logger.info("Application started successfully")
     except Exception as e:
         logger.error(f"Failed to initialize RAG system: {e}")
@@ -98,7 +100,7 @@ async def chat(request: ChatRequest, rag: RAGSystem = Depends(get_rag_system)):
             yield from rag.chat_stream(request.message, history)
         except Exception as e:
             logger.error(f"Error during streaming: {e}", exc_info=True)
-            yield f"data: {{\\"type\\": \\"error\\", \\"content\\": \\"An internal error occurred.\\"}}\n\n"
+            yield f'data: {{"type": "error", "content": "An internal error occurred."}}\n\n'
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(
