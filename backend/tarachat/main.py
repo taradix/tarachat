@@ -1,20 +1,13 @@
 import logging
-import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from tarachat.models import (
-    ChatRequest,
-    ChatResponse,
-    DocumentUpload,
-    HealthResponse
-)
-from tarachat.rag import RAGSystem, rag_system
 from tarachat.config import get_settings
-from tarachat.pdf_processor import pdf_processor
+from tarachat.models import ChatRequest, HealthResponse
+from tarachat.rag import RAGSystem, rag_system
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +27,8 @@ async def lifespan(app: FastAPI):
     try:
         rag.initialize()
         logger.info("Application started successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize RAG system: {e}")
+    except Exception:
+        logger.exception("Failed to initialize RAG system")
         raise
 
     yield
@@ -100,7 +93,7 @@ async def chat(request: ChatRequest, rag: RAGSystem = Depends(get_rag_system)):
             yield from rag.chat_stream(request.message, history)
         except Exception as e:
             logger.error(f"Error during streaming: {e}", exc_info=True)
-            yield f'data: {{"type": "error", "content": "An internal error occurred."}}\n\n'
+            yield 'data: {"type": "error", "content": "An internal error occurred."}\n\n'
             yield "data: [DONE]\n\n"
 
     return StreamingResponse(

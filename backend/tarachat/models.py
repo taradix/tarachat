@@ -1,5 +1,5 @@
+
 from pydantic import BaseModel, Field
-from typing import List, Optional
 
 
 class ChatMessage(BaseModel):
@@ -11,7 +11,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     """Chat request model."""
     message: str = Field(..., description="User message", min_length=1)
-    conversation_history: Optional[List[ChatMessage]] = Field(
+    conversation_history: list[ChatMessage] | None = Field(
         default_factory=list,
         description="Previous conversation history"
     )
@@ -20,7 +20,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """Chat response model."""
     response: str = Field(..., description="Assistant response")
-    sources: List[str] = Field(
+    sources: list[str] = Field(
         default_factory=list,
         description="Source documents used for RAG"
     )
@@ -29,7 +29,7 @@ class ChatResponse(BaseModel):
 class DocumentUpload(BaseModel):
     """Document upload model."""
     content: str = Field(..., description="Document content")
-    metadata: Optional[dict] = Field(
+    metadata: dict | None = Field(
         default_factory=dict,
         description="Document metadata"
     )

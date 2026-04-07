@@ -6,7 +6,11 @@ authors = [
     {name = "Marc Tardif", email = "marc@taram.ca"},
 ]
 readme = "README.rst"
-requires-python = ">=3.10,<4.0"
+repository = "https://github.com/cr3/tarachat"
+packages = [
+    {include = "tarachat"},
+]
+requires-python = ">=3.12,<4.0"
 dependencies = [
     "aiofiles>=23.2.0,<24.0.0",
     "aiohttp>=3.13.2,<4.0.0",
@@ -39,7 +43,7 @@ test = [
     "pytest-xdocker>=0.2.0,<1.0.0",
 ]
 check = [
-    "ruff>=0.1.0,<1.0.0",
+    "ruff>=0.15.0,<1.0.0",
 ]
 
 [project.scripts]
@@ -51,11 +55,11 @@ tarachat = "tarachat.testing.fixtures"
 tarachat-services = "tarachat.testing.services"
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [tool.ruff]
-target-version = "py310"
+target-version = "py312"
 line-length = 120
 fix = true
 lint.select = [
@@ -93,19 +97,37 @@ lint.select = [
 lint.ignore = [
     # LineTooLong
     "E501",
-    # DoNotAssignLambda
-    "E731",
     # Create your own exception
     "TRY002",
     # Avoid specifying long messages outside the exception class
     "TRY003",
+    # Depends() in argument defaults is standard FastAPI
+    "B008",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101", "S106"]
 
+# Pytest options:
+#   https://docs.pytest.org/en/6.2.x/reference.html#ini-options-ref
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+addopts = [
+    "--doctest-modules",
+    "--doctest-glob=*.rst",
+]
+testpaths = [
+    "tarachat",
+    "docs",
+    "tests",
+]
+
+# Coverage options:
+#   https://coverage.readthedocs.io/en/latest/config.html
+[tool.coverage.paths]
+source = [
+    "tarachat",
+    "*/*/site-packages",
+]
 
 [tool.coverage.report]
 fail_under = 70

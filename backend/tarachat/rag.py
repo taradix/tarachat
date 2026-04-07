@@ -1,18 +1,17 @@
-import os
 import json
 import logging
-from typing import List, Tuple, Generator
+from collections.abc import Generator
 from pathlib import Path
+from threading import Thread
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_community.docstore.in_memory import InMemoryDocstore
-from langchain.docstore.document import Document
-from transformers import AutoTokenizer, AutoModelForCausalLM, TextIteratorStreamer
 import faiss
 import torch
-from threading import Thread
+from langchain.docstore.document import Document
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.docstore.in_memory import InMemoryDocstore
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
 
 from tarachat.config import get_settings
 
@@ -92,7 +91,7 @@ class RAGSystem:
 
         logger.info("RAG system initialized successfully")
 
-    def add_documents(self, texts: List[str], metadatas: List[dict] = None):
+    def add_documents(self, texts: list[str], metadatas: list[dict] | None = None):
         """Add documents to the vector store."""
         if not texts:
             return
@@ -128,7 +127,7 @@ class RAGSystem:
 
         logger.info(f"Added {len(documents)} chunks to vector store")
 
-    def retrieve_documents(self, query: str, k: int = None) -> List[Document]:
+    def retrieve_documents(self, query: str, k: int | None = None) -> list[Document]:
         """Retrieve relevant documents for a query."""
         if k is None:
             k = self.settings.top_k
@@ -142,8 +141,8 @@ class RAGSystem:
     def _build_prompt(
         self,
         query: str,
-        context_docs: List[Document],
-        conversation_history: List[dict] = None,
+        context_docs: list[Document],
+        conversation_history: list[dict] | None = None,
     ) -> str:
         """Build the LLM prompt from context, history, and query."""
         context = "\n\n".join([doc.page_content for doc in context_docs])
@@ -177,7 +176,7 @@ Question : {query}
 
 Réponse :"""
 
-    def _build_demo_response(self, docs: List[Document]) -> str:
+    def _build_demo_response(self, docs: list[Document]) -> str:
         """Build a demo-mode response from retrieved documents (no LLM)."""
         if docs:
             snippets = [doc.page_content[:300].strip() for doc in docs[:2]]
@@ -187,7 +186,7 @@ Réponse :"""
             return response
         return "Désolé, je n'ai pas trouvé d'informations pertinentes dans la base de connaissances pour répondre à votre question."
 
-    def _extract_sources(self, docs: List[Document]) -> List[str]:
+    def _extract_sources(self, docs: list[Document]) -> list[str]:
         """Extract source previews from retrieved documents."""
         return [doc.page_content[:100] + "..." for doc in docs]
 
@@ -211,9 +210,9 @@ Réponse :"""
     def generate_response(
         self,
         query: str,
-        context_docs: List[Document],
-        conversation_history: List[dict] = None,
-        max_length: int = None
+        context_docs: list[Document],
+        conversation_history: list[dict] | None = None,
+        max_length: int | None = None
     ) -> str:
         """Generate a response using the LLM with context."""
         if max_length is None:
@@ -241,9 +240,9 @@ Réponse :"""
     def generate_response_stream(
         self,
         query: str,
-        context_docs: List[Document],
-        conversation_history: List[dict] = None,
-        max_length: int = None,
+        context_docs: list[Document],
+        conversation_history: list[dict] | None = None,
+        max_length: int | None = None,
     ) -> Generator[str, None, None]:
         """Generate a streaming response, yielding tokens as they are produced."""
         if max_length is None:
@@ -258,12 +257,11 @@ Réponse :"""
         thread = Thread(target=self.model.generate, kwargs=kwargs)
         thread.start()
 
-        for token_text in streamer:
-            yield token_text
+        yield from streamer
 
         thread.join()
 
-    def chat(self, message: str, conversation_history: List[dict] = None) -> Tuple[str, List[str]]:
+    def chat(self, message: str, conversation_history: list[dict] | None = None) -> tuple[str, list[str]]:
         """Process a chat message with RAG."""
 
         # Retrieve relevant documents
@@ -278,7 +276,7 @@ Réponse :"""
         response = self.generate_response(message, docs, conversation_history)
         return response, self._extract_sources(docs)
 
-    def chat_stream(self, message: str, conversation_history: List[dict] = None) -> Generator[str, None, None]:
+    def chat_stream(self, message: str, conversation_history: list[dict] | None = None) -> Generator[str, None, None]:
         """Process a chat message with RAG, yielding SSE events as tokens stream."""
         docs = self.retrieve_documents(message)
         sources = self._extract_sources(docs)

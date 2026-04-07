@@ -3,12 +3,11 @@
 Supports both text (.txt) and PDF (.pdf) files.
 """
 
-import json
-import sqlite3
 import argparse
-from pathlib import Path
-from typing import Dict, Optional
+import json
 import logging
+import sqlite3
+from pathlib import Path
 
 from tarachat.pdf_processor import PDFProcessor, pdf_processor
 from tarachat.rag import RAGSystem, rag_system
@@ -48,7 +47,7 @@ class DocumentManager:
             return
 
         try:
-            with open(json_path, 'r', encoding='utf-8') as f:
+            with open(json_path, encoding='utf-8') as f:
                 old_metadata = json.load(f)
 
             if old_metadata:
@@ -65,14 +64,14 @@ class DocumentManager:
         except Exception as e:
             logger.warning(f"Failed to migrate from JSON: {e}")
 
-    def _read_file_content(self, file_path: Path) -> tuple[str, Dict]:
+    def _read_file_content(self, file_path: Path) -> tuple[str, dict]:
         """Read content from a file, supporting both text and PDF formats."""
         if file_path.suffix.lower() == '.pdf':
             with open(file_path, 'rb') as f:
                 pdf_bytes = f.read()
             return self.pdf.extract_text_from_pdf(pdf_bytes)
         else:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 content = f.read()
             return content, {}
 
@@ -82,7 +81,7 @@ class DocumentManager:
             row = conn.execute("SELECT 1 FROM documents WHERE id = ?", (doc_id,)).fetchone()
             return row is not None
 
-    def add_document(self, doc_id: str, content: str, metadata: Optional[Dict] = None):
+    def add_document(self, doc_id: str, content: str, metadata: dict | None = None):
         """Add a new document to the vector store."""
         if self._doc_exists(doc_id):
             logger.warning(f"Document '{doc_id}' already exists. Use 'update' to modify it.")
@@ -104,7 +103,7 @@ class DocumentManager:
         logger.info(f"✓ Document '{doc_id}' added successfully")
         return True
 
-    def update_document(self, doc_id: str, content: str, metadata: Optional[Dict] = None):
+    def update_document(self, doc_id: str, content: str, metadata: dict | None = None):
         """Update an existing document by deleting and re-adding it."""
         if not self._doc_exists(doc_id):
             logger.error(f"Document '{doc_id}' not found. Use 'add' to create it.")
@@ -211,7 +210,7 @@ class DocumentManager:
             return
 
         logger.info(f"Loading documents from {data_path}...")
-        with open(data_path, "r", encoding="utf-8") as f:
+        with open(data_path, encoding="utf-8") as f:
             content = f.read()
 
         documents = [doc.strip() for doc in content.split("\n\n") if doc.strip()]
@@ -245,8 +244,49 @@ class DocumentManager:
                     **extracted_metadata
                 }
                 self.add_document(doc_id, content, metadata)
-            except Exception as e:
-                logger.error(f"Error processing {file_path}: {e}")
+            except Exception:
+                logger.exception(f"Error processing {file_path}")
+
+
+def _run_add(manager, args):
+    if args.dir:
+        dir_path = Path(args.dir)
+        if not dir_path.exists():
+            logger.error(f"Directory not found: {args.dir}")
+            return
+        manager.add_from_directory(dir_path, args.pattern)
+    elif args.file:
+        if not args.id:
+            logger.error("--id is required when using --file")
+            return
+
+        file_path = Path(args.file)
+        if not file_path.exists():
+            logger.error(f"File not found: {args.file}")
+            return
+
+        content, extracted_metadata = manager._read_file_content(file_path)
+        base_metadata = {'source': str(file_path), 'filename': file_path.name, **extracted_metadata}
+        if args.metadata:
+            user_metadata = json.loads(args.metadata)
+            base_metadata.update(user_metadata)
+        manager.add_document(args.id, content, base_metadata)
+    else:
+        logger.error("Either --file or --dir must be specified")
+
+
+def _run_update(manager, args):
+    file_path = Path(args.file)
+    if not file_path.exists():
+        logger.error(f"File not found: {args.file}")
+        return
+
+    content, extracted_metadata = manager._read_file_content(file_path)
+    metadata = extracted_metadata.copy()
+    if args.metadata:
+        user_metadata = json.loads(args.metadata)
+        metadata.update(user_metadata)
+    manager.update_document(args.id, content, metadata if metadata else None)
 
 
 def main():
@@ -294,53 +334,12 @@ def main():
 
     manager = DocumentManager(rag_system, pdf_processor)
 
-    if args.command == 'add':
-        if args.dir:
-            dir_path = Path(args.dir)
-            if not dir_path.exists():
-                logger.error(f"Directory not found: {args.dir}")
-                return
-            manager.add_from_directory(dir_path, args.pattern)
-        elif args.file:
-            if not args.id:
-                logger.error("--id is required when using --file")
-                return
-
-            file_path = Path(args.file)
-            if not file_path.exists():
-                logger.error(f"File not found: {args.file}")
-                return
-
-            content, extracted_metadata = manager._read_file_content(file_path)
-            base_metadata = {'source': str(file_path), 'filename': file_path.name, **extracted_metadata}
-            if args.metadata:
-                user_metadata = json.loads(args.metadata)
-                base_metadata.update(user_metadata)
-            manager.add_document(args.id, content, base_metadata)
-        else:
-            logger.error("Either --file or --dir must be specified")
-
-    elif args.command == 'update':
-        file_path = Path(args.file)
-        if not file_path.exists():
-            logger.error(f"File not found: {args.file}")
-            return
-
-        content, extracted_metadata = manager._read_file_content(file_path)
-        metadata = extracted_metadata.copy()
-        if args.metadata:
-            user_metadata = json.loads(args.metadata)
-            metadata.update(user_metadata)
-        manager.update_document(args.id, content, metadata if metadata else None)
-
-    elif args.command == 'delete':
-        manager.delete_document(args.id)
-
-    elif args.command == 'list':
-        manager.list_documents()
-
-    elif args.command == 'clear':
-        manager.clear_all()
-
-    elif args.command == 'init':
-        manager.init_from_sample_file(Path(args.data_path))
+    commands = {
+        'add': lambda: _run_add(manager, args),
+        'update': lambda: _run_update(manager, args),
+        'delete': lambda: manager.delete_document(args.id),
+        'list': manager.list_documents,
+        'clear': manager.clear_all,
+        'init': lambda: manager.init_from_sample_file(Path(args.data_path)),
+    }
+    commands[args.command]()

@@ -1,4 +1,5 @@
 import pytest
+
 from tarachat.pdf_processor import PDFProcessor
 
 

@@ -5,8 +5,8 @@ import json
 import logging
 from pathlib import Path
 
-import aiohttp
 import aiofiles
+import aiohttp
 from bs4 import BeautifulSoup
 from yarl import URL
 
@@ -100,8 +100,8 @@ async def download_one(
 
         return (url, str(file_path), "downloaded")
 
-    except Exception as e:
-        logger.error(f"[{url}] ERROR: {e}")
+    except Exception:
+        logger.exception(f"[{url}] Download failed")
         return (url, None, "error")
 
 
@@ -129,13 +129,12 @@ async def download_many(
 
 
 async def get_urls(url: URL, timeout: int = DEFAULT_TIMEOUT) -> list[URL]:
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, timeout=timeout) as resp:
-            resp.raise_for_status()
-            data = await resp.json()
-            html_content = data['contenu']
-            soup = BeautifulSoup(html_content, "html.parser")
-            return [URL(a.get("href")) for a in soup.find_all("a")]
+    async with aiohttp.ClientSession() as session, session.get(url, timeout=timeout) as resp:
+        resp.raise_for_status()
+        data = await resp.json()
+        html_content = data['contenu']
+        soup = BeautifulSoup(html_content, "html.parser")
+        return [URL(a.get("href")) for a in soup.find_all("a")]
 
 
 async def _async_main():
