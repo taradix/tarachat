@@ -49,10 +49,6 @@ import logging
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import faiss
-from langchain_community.vectorstores import FAISS as FAISSStore
-from langchain_community.docstore.in_memory import InMemoryDocstore
-
 from app.rag import rag_system
 from app.pdf_processor import pdf_processor
 
@@ -192,15 +188,7 @@ class DocumentManager:
         """Rebuild the entire vector store from stored content."""
         logger.info("Rebuilding vector store...")
 
-        sample_embedding = self.rag_system.embeddings.embed_query("sample")
-        dimension = len(sample_embedding)
-        index = faiss.IndexFlatL2(dimension)
-        self.rag_system.vector_store = FAISSStore(
-            embedding_function=self.rag_system.embeddings,
-            index=index,
-            docstore=InMemoryDocstore({}),
-            index_to_docstore_id={},
-        )
+        self.rag_system.vector_store = self.rag_system.create_empty_vector_store()
 
         # Re-add all remaining documents from SQLite
         with sqlite3.connect(self.db_path) as conn:
@@ -249,15 +237,7 @@ class DocumentManager:
 
         logger.info("Clearing vector store...")
 
-        sample_embedding = self.rag_system.embeddings.embed_query("sample")
-        dimension = len(sample_embedding)
-        index = faiss.IndexFlatL2(dimension)
-        self.rag_system.vector_store = FAISSStore(
-            embedding_function=self.rag_system.embeddings,
-            index=index,
-            docstore=InMemoryDocstore({}),
-            index_to_docstore_id={},
-        )
+        self.rag_system.vector_store = self.rag_system.create_empty_vector_store()
 
         vector_store_path= Path(self.rag_system.settings.vector_store_path)
         vector_store_path.mkdir(parents=True, exist_ok=True)

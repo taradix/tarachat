@@ -32,6 +32,18 @@ class RAGSystem:
 
         logger.info(f"Using device: {self.device}")
 
+    def create_empty_vector_store(self) -> FAISS:
+        """Create a new empty FAISS vector store."""
+        sample_embedding = self.embeddings.embed_query("sample")
+        dimension = len(sample_embedding)
+        index = faiss.IndexFlatL2(dimension)
+        return FAISS(
+            embedding_function=self.embeddings,
+            index=index,
+            docstore=InMemoryDocstore({}),
+            index_to_docstore_id={},
+        )
+
     def initialize(self):
         """Initialize the RAG system components."""
         logger.info("Initializing RAG system...")
@@ -47,7 +59,6 @@ class RAGSystem:
         vector_store_path = Path(self.settings.vector_store_path)
         if vector_store_path.exists() and (vector_store_path / "index.faiss").exists():
             logger.info("Loading existing vector store...")
-            # Try with allow_dangerous_deserialization parameter for newer versions
             try:
                 self.vector_store = FAISS.load_local(
                     str(vector_store_path),
@@ -55,7 +66,6 @@ class RAGSystem:
                     allow_dangerous_deserialization=True
                 )
             except TypeError:
-                # Fallback for older versions without this parameter
                 logger.info("Using older FAISS.load_local signature...")
                 self.vector_store = FAISS.load_local(
                     str(vector_store_path),
@@ -63,16 +73,7 @@ class RAGSystem:
                 )
         else:
             logger.info("Creating new empty vector store...")
-            # Create an empty FAISS index using the embedding dimension
-            sample_embedding= self.embeddings.embed_query("sample")
-            dimension = len(sample_embedding)
-            index = faiss.IndexFlatL2(dimension)
-            self.vector_store = FAISS(
-                embedding_function=self.embeddings,
-                index=index,
-                docstore=InMemoryDocstore({}),
-                index_to_docstore_id={},
-            )
+            self.vector_store = self.create_empty_vector_store()
             vector_store_path.mkdir(parents=True, exist_ok=True)
             self.vector_store.save_local(str(vector_store_path))
 
@@ -176,6 +177,37 @@ Question : {query}
 
 Réponse :"""
 
+    def _build_demo_response(self, docs: List[Document]) -> str:
+        """Build a demo-mode response from retrieved documents (no LLM)."""
+        if docs:
+            snippets = [doc.page_content[:300].strip() for doc in docs[:2]]
+            response = f"Voici ce que j'ai trouvé dans les documents:\n\n{snippets[0]}"
+            if len(snippets) > 1:
+                response += f"\n\n{snippets[1]}"
+            return response
+        return "Désolé, je n'ai pas trouvé d'informations pertinentes dans la base de connaissances pour répondre à votre question."
+
+    def _extract_sources(self, docs: List[Document]) -> List[str]:
+        """Extract source previews from retrieved documents."""
+        return [doc.page_content[:100] + "..." for doc in docs]
+
+    def _tokenize_prompt(self, prompt: str) -> dict:
+        """Tokenize a prompt and move tensors to the target device."""
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
+        return {k: v.to(self.device) for k, v in inputs.items()}
+
+    def _generation_kwargs(self, inputs: dict, max_length: int) -> dict:
+        """Build the shared generation kwargs for model.generate()."""
+        return {
+            **inputs,
+            "max_new_tokens": max_length,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "do_sample": True,
+            "num_beams": 1,
+            "pad_token_id": self.tokenizer.eos_token_id,
+        }
+
     def generate_response(
         self,
         query: str,
@@ -188,24 +220,12 @@ Réponse :"""
             max_length = self.settings.max_tokens
 
         prompt = self._build_prompt(query, context_docs, conversation_history)
-
-        # Tokenize
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        inputs = self._tokenize_prompt(prompt)
 
         logger.info(f"Generating response for query: {query[:50]}...")
 
-        # Generate
         with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=max_length,
-                temperature=0.7,
-                top_p=0.9,
-                do_sample=True,
-                num_beams=1,  # Disable beam search for faster generation
-                pad_token_id=self.tokenizer.eos_token_id
-            )
+            outputs = self.model.generate(**self._generation_kwargs(inputs, max_length))
 
         logger.info("Response generation complete")
 
@@ -230,24 +250,12 @@ Réponse :"""
             max_length = self.settings.max_tokens
 
         prompt = self._build_prompt(query, context_docs, conversation_history)
-
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
-        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        inputs = self._tokenize_prompt(prompt)
 
         streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
+        kwargs = {**self._generation_kwargs(inputs, max_length), "streamer": streamer}
 
-        generation_kwargs = {
-            **inputs,
-            "max_new_tokens": max_length,
-            "temperature": 0.7,
-            "top_p": 0.9,
-            "do_sample": True,
-            "num_beams": 1,
-            "pad_token_id": self.tokenizer.eos_token_id,
-            "streamer": streamer,
-        }
-
-        thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
+        thread = Thread(target=self.model.generate, kwargs=kwargs)
         thread.start()
 
         for token_text in streamer:
@@ -261,55 +269,23 @@ Réponse :"""
         # Retrieve relevant documents
         docs = self.retrieve_documents(message)
 
-        # Demo mode: Fast responses without LLM generation
         if self.settings.demo_mode:
             logger.info("Using demo mode (fast RAG-only responses)")
-            if docs and len(docs) > 0:
-                # Create a response from the retrieved documents
-                context_snippets = []
-                for i, doc in enumerate(docs[:2], 1):  # Use top 2 docs
-                    snippet = doc.page_content[:300].strip()
-                    context_snippets.append(snippet)
-
-                # Simple response construction
-                response = f"Voici ce que j'ai trouvé dans les documents:\n\n{context_snippets[0]}"
-                if len(context_snippets) > 1:
-                    response += f"\n\n{context_snippets[1]}"
-            else:
-                response = "Désolé, je n'ai pas trouvé d'informations pertinentes dans la base de connaissances pour répondre à votre question."
-
-            # Extract sources
-            sources = [doc.page_content[:100] + "..." for doc in docs]
-            return response, sources
+            return self._build_demo_response(docs), self._extract_sources(docs)
 
         # Normal mode: Full LLM generation (slow on CPU)
         logger.info("Using full LLM mode (slow on CPU without GPU)")
         response = self.generate_response(message, docs, conversation_history)
-
-        # Extract sources
-        sources = [doc.page_content[:100] + "..." for doc in docs]
-
-        return response, sources
+        return response, self._extract_sources(docs)
 
     def chat_stream(self, message: str, conversation_history: List[dict] = None) -> Generator[str, None, None]:
         """Process a chat message with RAG, yielding SSE events as tokens stream."""
         docs = self.retrieve_documents(message)
-        sources = [doc.page_content[:100] + "..." for doc in docs]
+        sources = self._extract_sources(docs)
 
         if self.settings.demo_mode:
             logger.info("Using demo mode (fast RAG-only responses)")
-            if docs and len(docs) > 0:
-                context_snippets = []
-                for i, doc in enumerate(docs[:2], 1):
-                    snippet = doc.page_content[:300].strip()
-                    context_snippets.append(snippet)
-                response = f"Voici ce que j'ai trouvé dans les documents:\n\n{context_snippets[0]}"
-                if len(context_snippets) > 1:
-                    response += f"\n\n{context_snippets[1]}"
-            else:
-                response = "Désolé, je n'ai pas trouvé d'informations pertinentes dans la base de connaissances pour répondre à votre question."
-
-            # In demo mode, send full response as one chunk
+            response = self._build_demo_response(docs)
             yield f"data: {json.dumps({'type': 'token', 'content': response})}\n\n"
             yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
             yield "data: [DONE]\n\n"
