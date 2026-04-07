@@ -68,12 +68,11 @@ docker-compose logs -f backend
 ```
 tarachat/
 ├── backend/           # FastAPI backend
-│   ├── tarachat/          # Application code
-│   ├── scripts/      # Utility scripts
-│   └── data/         # Sample documents
+│   ├── tarachat/      # Application code
+│   └── data/          # Sample documents
 │
-├── frontend/         # React frontend
-│   └── src/         # Source code
+├── frontend/          # React frontend
+│   └── src/           # Source code
 │       └── components/  # React components
 │
 └── docker-compose.yml  # Orchestration

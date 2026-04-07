@@ -44,5 +44,5 @@ See `.env.example` for configuration options.
 ## Initialize Sample Data
 
 ```bash
-python scripts/init_data.py
+tarachat-ingest init
 ```
