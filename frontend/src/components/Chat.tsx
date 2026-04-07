@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Message } from '../types';
-import { sendMessage } from '../api';
+import { sendMessageStream } from '../api';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import './Chat.css';
@@ -21,7 +21,6 @@ function Chat() {
   const handleSendMessage = async (content: string) => {
     if (!content.trim() || isLoading) return;
 
-    // Add user message
     const userMessage: Message = {
       role: 'user',
       content,
@@ -30,38 +29,75 @@ function Chat() {
     setMessages((prev) => [...prev, userMessage]);
     setIsLoading(true);
 
+    // Add a placeholder assistant message for streaming
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, assistantMessage]);
+
     try {
-      // Prepare conversation history
       const history = messages.map((msg) => ({
         role: msg.role,
         content: msg.content,
       }));
 
-      // Send to API
-      const response = await sendMessage({
-        message: content,
-        conversation_history: history,
-      });
-
-      // Add assistant message
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: response.response,
-        sources: response.sources,
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, assistantMessage]);
+      await sendMessageStream(
+        { message: content, conversation_history: history },
+        {
+          onToken: (token) => {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === 'assistant') {
+                updated[updated.length - 1] = { ...last, content: last.content + token };
+              }
+              return updated;
+            });
+          },
+          onSources: (sources) => {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === 'assistant') {
+                updated[updated.length - 1] = { ...last, sources };
+              }
+              return updated;
+            });
+          },
+          onError: (error) => {
+            console.error('Stream error:', error);
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last.role === 'assistant' && last.content === '') {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: 'Sorry, I encountered an error. Please make sure the backend is running and try again.',
+                };
+              }
+              return updated;
+            });
+          },
+          onDone: () => {
+            setIsLoading(false);
+          },
+        },
+      );
     } catch (error) {
       console.error('Failed to send message:', error);
-
-      // Add error message
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please make sure the backend is running and try again.',
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, errorMessage]);
-    } finally {
+      setMessages((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last.role === 'assistant') {
+          updated[updated.length - 1] = {
+            ...last,
+            content: 'Sorry, I encountered an error. Please make sure the backend is running and try again.',
+          };
+        }
+        return updated;
+      });
       setIsLoading(false);
     }
   };

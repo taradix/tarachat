@@ -2,8 +2,9 @@ import logging
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from app.models import (
     ChatRequest,
@@ -11,7 +12,7 @@ from app.models import (
     DocumentUpload,
     HealthResponse
 )
-from app.rag import rag_system
+from app.rag import RAGSystem, rag_system
 from app.config import get_settings
 from app.pdf_processor import pdf_processor
 
@@ -21,6 +22,11 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+def get_rag_system() -> RAGSystem:
+    """Dependency that provides the RAG system instance."""
+    return rag_system
 
 
 @asynccontextmanager
@@ -71,43 +77,40 @@ async def root():
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
-async def health_check():
+async def health_check(rag: RAGSystem = Depends(get_rag_system)):
     """Health check endpoint."""
-    is_ready = rag_system.is_ready()
+    is_ready = rag.is_ready()
     return HealthResponse(
         status="healthy" if is_ready else "initializing",
-        model_loaded=rag_system.model is not None,
-        vector_store_ready=rag_system.vector_store is not None
+        model_loaded=rag.model is not None,
+        vector_store_ready=rag.vector_store is not None
     )
 
 
-@app.post("/chat", response_model=ChatResponse, tags=["Chat"])
-async def chat(request: ChatRequest):
-    """Chat endpoint with RAG."""
-    try:
-        if not rag_system.is_ready():
-            raise HTTPException(
-                status_code=503,
-                detail="RAG system is not ready yet. Please try again later."
-            )
-
-        # Process the chat message in a thread to avoid blocking the event loop
-        history = request.conversation_history or []
-        response, sources = await asyncio.to_thread(
-            rag_system.chat, request.message, history
-        )
-
-        return ChatResponse(
-            response=response,
-            sources=sources
-        )
-
-    except Exception as e:
-        logger.error(f"Error processing chat request: {e}", exc_info=True)
+@app.post("/chat", tags=["Chat"])
+async def chat(request: ChatRequest, rag: RAGSystem = Depends(get_rag_system)):
+    """Chat endpoint with RAG. Returns a Server-Sent Events stream."""
+    if not rag.is_ready():
         raise HTTPException(
-            status_code=500,
-            detail="An internal error occurred. Please try again later."
+            status_code=503,
+            detail="RAG system is not ready yet. Please try again later."
         )
+
+    history = request.conversation_history or []
+
+    def event_generator():
+        try:
+            yield from rag.chat_stream(request.message, history)
+        except Exception as e:
+            logger.error(f"Error during streaming: {e}", exc_info=True)
+            yield f"data: {{\\"type\\": \\"error\\", \\"content\\": \\"An internal error occurred.\\"}}\n\n"
+            yield "data: [DONE]\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 if __name__ == "__main__":

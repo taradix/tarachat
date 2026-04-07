@@ -1,6 +1,7 @@
 import os
+import json
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Generator
 from pathlib import Path
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -8,8 +9,9 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain.docstore.document import Document
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, TextIteratorStreamer
 import torch
+from threading import Thread
 
 from app.config import get_settings
 
@@ -137,6 +139,44 @@ class RAGSystem:
         results = self.vector_store.similarity_search(query, k=k)
         return results
 
+    def _build_prompt(
+        self,
+        query: str,
+        context_docs: List[Document],
+        conversation_history: List[dict] = None,
+    ) -> str:
+        """Build the LLM prompt from context, history, and query."""
+        context = "\n\n".join([doc.page_content for doc in context_docs])
+
+        history_text = ""
+        if conversation_history:
+            recent = conversation_history[-6:]
+            history_lines = []
+            for msg in recent:
+                role = "Utilisateur" if msg.get("role") == "user" else "Assistant"
+                history_lines.append(f"{role}: {msg.get('content', '')}")
+            history_text = "\n".join(history_lines)
+
+        if history_text:
+            return f"""Voici du contexte pertinent :
+
+{context}
+
+Historique de la conversation :
+{history_text}
+
+Question : {query}
+
+Réponse :"""
+        else:
+            return f"""Voici du contexte pertinent :
+
+{context}
+
+Question : {query}
+
+Réponse :"""
+
     def generate_response(
         self,
         query: str,
@@ -148,39 +188,7 @@ class RAGSystem:
         if max_length is None:
             max_length = self.settings.max_tokens
 
-        # Prepare context from retrieved documents
-        context = "\n\n".join([doc.page_content for doc in context_docs])
-
-        # Build conversation history section
-        history_text = ""
-        if conversation_history:
-            recent = conversation_history[-6:]
-            history_lines = []
-            for msg in recent:
-                role = "Utilisateur" if msg.get("role") == "user" else "Assistant"
-                history_lines.append(f"{role}: {msg.get('content', '')}")
-            history_text = "\n".join(history_lines)
-
-        # Create prompt
-        if history_text:
-            prompt = f"""Voici du contexte pertinent :
-
-{context}
-
-Historique de la conversation :
-{history_text}
-
-Question : {query}
-
-Réponse :"""
-        else:
-            prompt = f"""Voici du contexte pertinent :
-
-{context}
-
-Question : {query}
-
-Réponse :"""
+        prompt = self._build_prompt(query, context_docs, conversation_history)
 
         # Tokenize
         inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
@@ -210,6 +218,43 @@ Réponse :"""
             response = response.split("Réponse :")[-1].strip()
 
         return response
+
+    def generate_response_stream(
+        self,
+        query: str,
+        context_docs: List[Document],
+        conversation_history: List[dict] = None,
+        max_length: int = None,
+    ) -> Generator[str, None, None]:
+        """Generate a streaming response, yielding tokens as they are produced."""
+        if max_length is None:
+            max_length = self.settings.max_tokens
+
+        prompt = self._build_prompt(query, context_docs, conversation_history)
+
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        streamer = TextIteratorStreamer(self.tokenizer, skip_prompt=True, skip_special_tokens=True)
+
+        generation_kwargs = {
+            **inputs,
+            "max_new_tokens": max_length,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "do_sample": True,
+            "num_beams": 1,
+            "pad_token_id": self.tokenizer.eos_token_id,
+            "streamer": streamer,
+        }
+
+        thread = Thread(target=self.model.generate, kwargs=generation_kwargs)
+        thread.start()
+
+        for token_text in streamer:
+            yield token_text
+
+        thread.join()
 
     def chat(self, message: str, conversation_history: List[dict] = None) -> Tuple[str, List[str]]:
         """Process a chat message with RAG."""
@@ -246,6 +291,38 @@ Réponse :"""
         sources = [doc.page_content[:100] + "..." for doc in docs]
 
         return response, sources
+
+    def chat_stream(self, message: str, conversation_history: List[dict] = None) -> Generator[str, None, None]:
+        """Process a chat message with RAG, yielding SSE events as tokens stream."""
+        docs = self.retrieve_documents(message)
+        sources = [doc.page_content[:100] + "..." for doc in docs]
+
+        if self.settings.demo_mode:
+            logger.info("Using demo mode (fast RAG-only responses)")
+            if docs and len(docs) > 0:
+                context_snippets = []
+                for i, doc in enumerate(docs[:2], 1):
+                    snippet = doc.page_content[:300].strip()
+                    context_snippets.append(snippet)
+                response = f"Voici ce que j'ai trouvé dans les documents:\n\n{context_snippets[0]}"
+                if len(context_snippets) > 1:
+                    response += f"\n\n{context_snippets[1]}"
+            else:
+                response = "Désolé, je n'ai pas trouvé d'informations pertinentes dans la base de connaissances pour répondre à votre question."
+
+            # In demo mode, send full response as one chunk
+            yield f"data: {json.dumps({'type': 'token', 'content': response})}\n\n"
+            yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        # Normal mode: stream tokens
+        logger.info("Using full LLM mode with streaming")
+        for token in self.generate_response_stream(message, docs, conversation_history):
+            yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
+        yield "data: [DONE]\n\n"
 
     def is_ready(self) -> bool:
         """Check if the RAG system is ready."""
