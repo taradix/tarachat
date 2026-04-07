@@ -5,7 +5,7 @@ description = "RAG chatbot backend with CroissantLLM."
 authors = [
     {name = "Marc Tardif", email = "marc@taram.ca"},
 ]
-readme = "README.md"
+readme = "README.rst"
 requires-python = ">=3.10,<4.0"
 dependencies = [
     "aiofiles>=23.2.0,<24.0.0",
