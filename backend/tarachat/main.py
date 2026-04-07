@@ -6,21 +6,16 @@ from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
-from app.models import (
+from tarachat.models import (
     ChatRequest,
     ChatResponse,
     DocumentUpload,
     HealthResponse
 )
-from app.rag import RAGSystem, rag_system
-from app.config import get_settings
-from app.pdf_processor import pdf_processor
+from tarachat.rag import RAGSystem, rag_system
+from tarachat.config import get_settings
+from tarachat.pdf_processor import pdf_processor
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
 logger = logging.getLogger(__name__)
 
 
@@ -116,7 +111,7 @@ async def chat(request: ChatRequest, rag: RAGSystem = Depends(get_rag_system)):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        "app.main:app",
+        "tarachat.main:app",
         host=settings.host,
         port=settings.port,
         reload=True

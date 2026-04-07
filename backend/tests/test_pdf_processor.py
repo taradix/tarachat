@@ -1,5 +1,5 @@
 import pytest
-from app.pdf_processor import PDFProcessor
+from tarachat.pdf_processor import PDFProcessor
 
 
 @pytest.fixture

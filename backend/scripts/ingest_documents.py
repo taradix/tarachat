@@ -49,8 +49,8 @@ import logging
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.rag import rag_system
-from app.pdf_processor import pdf_processor
+from tarachat.rag import rag_system
+from tarachat.pdf_processor import pdf_processor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from app.models import (
+from tarachat.models import (
     ChatMessage,
     ChatRequest,
     ChatResponse,

@@ -1,65 +1,66 @@
-.PHONY: help build up down dev logs clean init-data ingest-docs list-docs clear-docs
+SUBDIRS := backend
+TARGETS := setup check test coverage
+
+.PHONY: $(TARGETS) $(SUBDIRS)
+$(TARGETS): $(SUBDIRS)
+$(SUBDIRS):
+	@$(MAKE) -C $@ $(MAKECMDGOALS)
+
+NODE_MODULES := node_modules
+TOUCH := node -e "import fs from 'fs'; const f=process.argv[1]; try{fs.utimesSync(f,new Date(),new Date())}catch{fs.closeSync(fs.openSync(f,'w'))}"
+
+package-lock.json: package.json
+	@echo "==> Updating lock file..."
+	@npm install --package-lock-only
+
+# Build node_modules with deps.
+$(NODE_MODULES): package-lock.json
+	@echo "==> Installing Node environment..."
+	@npm install
+	@$(TOUCH) $@
+
+# Convenience target to build node_modules
+.PHONY: setup
+setup: $(NODE_MODULES)
+
+.PHONY: check
+check: $(NODE_MODULES)
+	@echo "==> Linting docker compose files..."
+	@npm run lint
 
 COMPOSE_DEV = docker compose -f docker-compose.yml -f docker-compose.dev.yml
 
-help:
-	@echo "TaraChat - RAG Chatbot"
-	@echo ""
-	@echo "Available commands:"
-	@echo "  make build       - Build Docker images (production)"
-	@echo "  make up          - Start the application (production)"
-	@echo "  make dev         - Start the application (development with hot-reload)"
-	@echo "  make down        - Stop the application"
-	@echo "  make logs        - View logs"
-	@echo "  make clean       - Clean up containers and volumes"
-	@echo "  make init-data   - Initialize vector store with sample data"
-	@echo ""
-	@echo "Document management:"
-	@echo "  make ingest-docs - Ingest documents from data/documents/"
-	@echo "  make list-docs   - List all documents in vector store"
-	@echo "  make clear-docs  - Clear all documents from vector store"
-	@echo ""
-	@echo "Local development (requires poetry):"
-	@echo "  cd backend && poetry run python scripts/ingest_documents.py --help"
+.PHONY: deploy
+deploy:
+	@echo "==> Pulling external images..."
+	@docker compose pull --quiet
+	@echo "==> Building images..."
+	@docker compose build --pull
+	@echo "==> Stopping and recreating services..."
+	@docker compose up --detach --remove-orphans --wait
+	@echo "==> Removing dangling images..."
+	@docker image prune --force
+	@echo "==> Deployment complete!"
+	@docker compose ps
 
-build:
-	docker compose build
+.PHONY: undeploy
+undeploy:
+	@echo "==> Stopping services..."
+	@docker compose down
+	@echo "==> Services stopped"
 
-up:
-	docker compose up -d
-	@echo ""
-	@echo "Application started! (production)"
-	@echo "Frontend: http://localhost"
-	@echo "Backend: http://localhost:8000"
-	@echo "API Docs: http://localhost:8000/docs"
-
+.PHONY: dev
 dev:
-	$(COMPOSE_DEV) up -d
+	@$(COMPOSE_DEV) up -d
 	@echo ""
 	@echo "Application started! (development)"
 	@echo "Frontend: http://localhost:5173"
 	@echo "Backend: http://localhost:8000"
 	@echo "API Docs: http://localhost:8000/docs"
 
-down:
-	docker compose down
-
-logs:
-	docker compose logs -f
-
+.PHONY: clean
 clean:
-	docker compose down -v
-	rm -rf backend/vector_store
+	@echo "==> Cleaning ignored files..."
+	@git clean -Xfd
 
-init-data:
-	docker compose exec backend python scripts/init_data.py
-
-ingest-docs:
-	@echo "Ingesting documents from backend/data/documents/"
-	docker compose exec backend python scripts/ingest_documents.py add --dir data/documents/
-
-list-docs:
-	docker compose exec backend python scripts/ingest_documents.py list
-
-clear-docs:
-	docker compose exec backend python scripts/ingest_documents.py clear
+.DEFAULT_GOAL := test

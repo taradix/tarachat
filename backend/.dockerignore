@@ -1,0 +1,7 @@
+*
+!*.rst
+!tarachat
+!log-config.*
+!pyproject.toml
+!scripts
+!uv.lock

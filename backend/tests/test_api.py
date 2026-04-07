@@ -4,8 +4,8 @@ import pytest
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 
-from app.main import app, get_rag_system
-from app.rag import RAGSystem
+from tarachat.main import app, get_rag_system
+from tarachat.rag import RAGSystem
 
 
 @pytest.fixture

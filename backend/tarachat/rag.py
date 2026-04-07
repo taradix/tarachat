@@ -14,7 +14,7 @@ import faiss
 import torch
 from threading import Thread
 
-from app.config import get_settings
+from tarachat.config import get_settings
 
 logger = logging.getLogger(__name__)
 

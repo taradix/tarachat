@@ -1,30 +1,33 @@
-FROM python:3.10-slim
+ARG PYTHON_VERSION=3.10
+FROM python:${PYTHON_VERSION}-slim AS base
 
-WORKDIR /app
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-# Install system dependencies
+FROM base AS build
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-ENV PATH="/root/.local/bin:$PATH"
+WORKDIR /app
 
-# Copy dependency files
-COPY pyproject.toml ./
+COPY uv.lock pyproject.toml ./
+RUN uv sync --frozen --no-install-project
 
-# Configure poetry to not create virtual environments
-RUN poetry config virtualenvs.create false
+COPY . ./
+RUN uv sync --frozen
 
-# Install dependencies (no dev deps in production)
-RUN poetry install --no-interaction --no-ansi --no-root --without dev
-
-# Copy application code
-COPY . .
+FROM base AS runtime
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENV PATH="/app/.venv/bin:$PATH"
+
+WORKDIR /app
+
+COPY --from=build /app ./

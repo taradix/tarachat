@@ -23,10 +23,10 @@ docker-compose up backend
 
 ```bash
 # Install dependencies
-poetry install
+uv sync
 
 # Run the server
-poetry run uvicorn app.main:app --reload
+uv run uvicorn tarachat.main:app --reload
 ```
 
 ## API Endpoints

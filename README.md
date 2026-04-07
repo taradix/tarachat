@@ -68,7 +68,7 @@ docker-compose logs -f backend
 ```
 tarachat/
 ├── backend/           # FastAPI backend
-│   ├── app/          # Application code
+│   ├── tarachat/          # Application code
 │   ├── scripts/      # Utility scripts
 │   └── data/         # Sample documents
 │
@@ -129,8 +129,8 @@ curl -X POST http://localhost:8000/documents \
 ### Backend
 ```bash
 cd backend
-poetry install
-poetry run uvicorn app.main:app --reload
+uv sync
+uv run uvicorn tarachat.main:app --reload
 ```
 
 ### Frontend
