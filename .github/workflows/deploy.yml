@@ -1,0 +1,25 @@
+name: deploy
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: deploy code
+        uses: appleboy/ssh-action@v1.2.5
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd ${{ secrets.WORK_DIR }}
+            git checkout ${{ secrets.MAIN_BRANCH }}
+            git pull origin ${{ secrets.MAIN_BRANCH }}
+            git submodule update --init --recursive
+            make deploy

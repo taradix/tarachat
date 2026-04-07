@@ -1,0 +1,135 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up Node environment
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Set up Python environment
+        uses: ./.github/actions/setup-uv-env
+        with:
+          extras: check
+          python-version: "3.14"
+          working-directory: backend
+
+      - name: Run check target
+        run: make check
+
+  backend-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.13', '3.14']
+      fail-fast: false
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+
+      - name: Set up Python environment
+        uses: ./.github/actions/setup-uv-env
+        with:
+          extras: test
+          python-version: ${{ matrix.python-version }}
+          working-directory: backend
+
+      - name: Run backend test target
+        working-directory: backend
+        run: make test
+
+      - name: "Upload coverage data"
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-data-${{ matrix.python-version }}
+          path: backend/.coverage.*
+          if-no-files-found: ignore
+          include-hidden-files: true
+
+  backend-coverage:
+    runs-on: ubuntu-latest
+    needs: backend-test
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up Python environment
+        uses: ./.github/actions/setup-uv-env
+        with:
+          extras: test
+          python-version: "3.14"
+          working-directory: backend
+
+      - name: Download coverage data
+        uses: actions/download-artifact@v8
+        with:
+          path: backend
+          pattern: coverage-data-*
+          merge-multiple: true
+
+      - name: Run coverage target
+        run: make coverage
+
+      - name: Upload HTML report if check failed.
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-report
+          path: htmlcov
+        if: ${{ failure() }}
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: ['20', '22', '24']
+      fail-fast: false
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up Node environment
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Run test target
+        working-directory: frontend
+        run: make test
+
+  frontend-coverage:
+    runs-on: ubuntu-latest
+    needs: frontend-test
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v6
+
+      - name: Set up Node environment
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Run coverage target
+        working-directory: frontend
+        run: make coverage
+
+      - name: Upload HTML report if check failed.
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-report
+          path: coverage
+        if: ${{ failure() }}
