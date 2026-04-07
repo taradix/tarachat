@@ -10,6 +10,9 @@ function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
 
   useEffect(() => {
+    const isHealthy = health?.status === 'healthy';
+    const pollInterval = isHealthy ? 30000 : 10000;
+
     const fetchHealth = async () => {
       try {
         const healthData = await checkHealth();
@@ -20,10 +23,10 @@ function App() {
     };
 
     fetchHealth();
-    const interval = setInterval(fetchHealth, 10000); // Check every 10 seconds
+    const interval = setInterval(fetchHealth, pollInterval);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [health?.status]);
 
   return (
     <div className="app">
