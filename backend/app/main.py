@@ -1,4 +1,5 @@
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -90,8 +91,8 @@ async def chat(request: ChatRequest):
                 detail="RAG system is not ready yet. Please try again later."
             )
 
-        # Process the chat message
-        response, sources = rag_system.chat(request.message)
+        # Process the chat message in a thread to avoid blocking the event loop
+        response, sources = await asyncio.to_thread(rag_system.chat, request.message)
 
         return ChatResponse(
             response=response,
