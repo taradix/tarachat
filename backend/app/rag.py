@@ -142,9 +142,11 @@ class RAGSystem:
         query: str,
         context_docs: List[Document],
         conversation_history: List[dict] = None,
-        max_length: int = 128
+        max_length: int = None
     ) -> str:
         """Generate a response using the LLM with context."""
+        if max_length is None:
+            max_length = self.settings.max_tokens
 
         # Prepare context from retrieved documents
         context = "\n\n".join([doc.page_content for doc in context_docs])
