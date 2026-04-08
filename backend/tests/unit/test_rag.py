@@ -4,7 +4,7 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
-from langchain.docstore.document import Document
+from langchain_core.documents import Document
 
 from tarachat.config import Settings
 from tarachat.rag import RAGSystem
