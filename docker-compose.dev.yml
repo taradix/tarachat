@@ -2,15 +2,19 @@ name: tarachat
 services:
   backend:
     volumes:
-      - ./backend:/app
-    command: uvicorn --host=0.0.0.0 --port=8000 tarachat.app:app --log-config=/app/log-config.dev.yaml --reload
+      - ./backend/tarachat:/app/tarachat
+    command: uvicorn --host=0.0.0.0 --port=80 tarachat.app:app --log-config=/app/log-config.dev.yaml --reload
+
+  certbot:
+    volumes:
+      - ./certbot/generate-cert.sh:/generate-cert.sh:ro
+    command: >
+      sh -c "trap exit TERM; /generate-cert.sh; /deploy-hook.sh; echo Ready; sleep infinity"
 
   frontend:
-    image: node:18-alpine
+    image: node:24-alpine
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    ports:
-      - '5173:5173'
-    command: npm run dev
+    command: npm run dev -- --host
     working_dir: /app

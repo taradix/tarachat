@@ -54,9 +54,8 @@ dev:
 	@$(COMPOSE_DEV) up -d
 	@echo ""
 	@echo "Application started! (development)"
-	@echo "Frontend: http://localhost:5173"
-	@echo "Backend: http://localhost:8000"
-	@echo "API Docs: http://localhost:8000/docs"
+	@echo "Frontend: https://localhost"
+	@echo "API Docs: https://localhost/api/docs"
 
 .PHONY: clean
 clean:

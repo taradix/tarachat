@@ -30,9 +30,8 @@ Quick Start
 
 **Access the application:**
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:8000
-- API Documentation: http://localhost:8000/docs
+- Frontend: https://localhost
+- API Documentation: https://localhost/api/docs
 
 **First startup takes 5-15 minutes** to download the CroissantLLM model (~3GB).
 
@@ -114,7 +113,7 @@ Chat with the Bot
 
 .. code-block:: bash
 
-   curl -X POST http://localhost:8000/chat \
+   curl -X POST https://localhost/api/chat \
      -H "Content-Type: application/json" \
      -d '{"message": "Parle-moi de Paris"}'
 
@@ -123,7 +122,7 @@ Upload a Document
 
 .. code-block:: bash
 
-   curl -X POST http://localhost:8000/documents \
+   curl -X POST https://localhost/api/documents \
      -H "Content-Type: application/json" \
      -d '{
        "content": "Your document text here",

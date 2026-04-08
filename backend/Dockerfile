@@ -26,6 +26,8 @@ RUN uv sync --frozen
 
 FROM base AS runtime
 
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 EXPOSE 80
 
 ENV PATH="/app/.venv/bin:$PATH"
