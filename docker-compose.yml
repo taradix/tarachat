@@ -23,7 +23,7 @@ services:
       timeout: 5s
 
   certbot:
-    image: certbot/certbot:v5.4.0
+    image: certbot/certbot:v5.5.0
     volumes:
       - ./certbot/deploy-hook.sh:/deploy-hook.sh:ro
       - certbot-certs:/etc/letsencrypt
