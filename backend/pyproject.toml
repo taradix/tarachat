@@ -35,7 +35,7 @@ dependencies = [
 
 [project.optional-dependencies]
 test = [
-    "attrs>=25.3.0,<26.0.0",
+    "attrs>=26.1.0,<26.2.0",
     "coverage>=7.2.3,<8.0.0",
     "httpx>=0.26.0,<1.0.0",
     "more-itertools>=11.0.1,<11.1.0",

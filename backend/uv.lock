@@ -155,11 +155,11 @@ wheels = [
 
 [[package]]
 name = "attrs"
-version = "25.4.0"
+version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6b/5c/685e6633917e101e5dcb62b9dd76946cbb57c26e133bae9e0cd36033c0a9/attrs-25.4.0.tar.gz", hash = "sha256:16d5969b87f0859ef33a48b35d55ac1be6e42ae49d5e853b597db70c35c57e11", size = 934251, upload-time = "2025-10-06T13:54:44.725Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32", size = 952055, upload-time = "2026-03-19T14:22:25.026Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3a/2a/7cc015f5b9f5db42b7d48157e23356022889fc354a2813c15934b7cb5c0e/attrs-25.4.0-py3-none-any.whl", hash = "sha256:adcf7e2a1fb3b36ac48d97835bb6d8ade15b8dcce26aba8bf1d14847b57a3373", size = 67615, upload-time = "2025-10-06T13:54:43.17Z" },
+    { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
 ]
 
 [[package]]
@@ -1725,7 +1725,7 @@ wheels = [
 
 [[package]]
 name = "pytest"
-version = "8.4.2"
+version = "9.0.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
@@ -1734,9 +1734,9 @@ dependencies = [
     { name = "pluggy" },
     { name = "pygments" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a3/5c/00a0e072241553e1a7496d638deababa67c5058571567b92a7eaa258397c/pytest-8.4.2.tar.gz", hash = "sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01", size = 1519618, upload-time = "2025-09-04T14:34:22.711Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/7d/0d/549bd94f1a0a402dc8cf64563a117c0f3765662e2e668477624baeec44d5/pytest-9.0.3.tar.gz", hash = "sha256:b86ada508af81d19edeb213c681b1d48246c1a91d304c6c81a427674c17eb91c", size = 1572165, upload-time = "2026-04-07T17:16:18.027Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl", hash = "sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79", size = 365750, upload-time = "2025-09-04T14:34:20.226Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/24/a372aaf5c9b7208e7112038812994107bc65a84cd00e0354a88c2c77a617/pytest-9.0.3-py3-none-any.whl", hash = "sha256:2c5efc453d45394fdd706ade797c0a81091eccd1d6e4bccfcd476e2b8e0ab5d9", size = 375249, upload-time = "2026-04-07T17:16:16.13Z" },
 ]
 
 [[package]]
@@ -1764,7 +1764,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/d1/15/082fd0428aab33d2b
 
 [[package]]
 name = "pytest-xdocker"
-version = "0.2.6"
+version = "0.2.8"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -1775,9 +1775,9 @@ dependencies = [
     { name = "pytest-cache" },
     { name = "pytest-xprocess" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/1c/ccc0500340315b50f3681b196105f6731f1be14fc42c9b44fd758cb6dc2b/pytest_xdocker-0.2.6.tar.gz", hash = "sha256:b0cdac3424f6a0e7c75223a5d998c624c04b2aec9cb4b227e415139824fbc186", size = 16675, upload-time = "2025-12-04T19:45:50.968Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/11/31/e55dea25c794c225bf17c0f787c60e6ecb06501f1d69c485afa8ebd5c897/pytest_xdocker-0.2.8.tar.gz", hash = "sha256:625ca2b673ea3f3fb4a8799de7b352fd28614f1751a2bd488198ff43e8386f44", size = 116533, upload-time = "2026-03-27T14:56:16.518Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1f/79/14482387c9a89cdf371c12700ec88d272576f4277904f5c89c20e4f12190/pytest_xdocker-0.2.6-py3-none-any.whl", hash = "sha256:66a4671991a88b6c4418e1b931e240e9770d7e02f5e5d2889cb68422cf2995ec", size = 20018, upload-time = "2025-12-04T19:45:49.865Z" },
+    { url = "https://files.pythonhosted.org/packages/2e/3c/67647cdff85b2a4c26502c2fa7063e0620aeda9f3530d43166816497e67c/pytest_xdocker-0.2.8-py3-none-any.whl", hash = "sha256:d7fcb352470aaa5c8d29f38ee9f8a338bb302329a5ed33edf317ee6c950fe017", size = 20226, upload-time = "2026-03-27T14:56:15.608Z" },
 ]
 
 [[package]]
@@ -2276,7 +2276,7 @@ test = [
 requires-dist = [
     { name = "aiofiles", specifier = ">=23.2.0,<24.0.0" },
     { name = "aiohttp", specifier = ">=3.13.2,<4.0.0" },
-    { name = "attrs", marker = "extra == 'test'", specifier = ">=25.3.0,<26.0.0" },
+    { name = "attrs", marker = "extra == 'test'", specifier = ">=26.1.0,<26.2.0" },
     { name = "beautifulsoup4", specifier = ">=4.14.2,<5.0.0" },
     { name = "coverage", marker = "extra == 'test'", specifier = ">=7.2.3,<8.0.0" },
     { name = "faiss-cpu", specifier = ">=1.7.4,<2.0.0" },
