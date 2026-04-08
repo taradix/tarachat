@@ -3,7 +3,7 @@ services:
   backend:
     volumes:
       - ./backend:/app
-    command: uvicorn --host=0.0.0.0 --port=8000 tarachat.main:app --log-config=/app/log-config.dev.yaml --reload
+    command: uvicorn --host=0.0.0.0 --port=8000 tarachat.app:app --log-config=/app/log-config.dev.yaml --reload
 
   frontend:
     image: node:18-alpine

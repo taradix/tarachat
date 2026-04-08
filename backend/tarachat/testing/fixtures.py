@@ -5,7 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from tarachat.main import app
+from tarachat.app import app
 from tarachat.rag import RAGProtocol
 
 

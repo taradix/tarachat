@@ -32,7 +32,7 @@ Local Development
    uv sync
 
    # Run the server
-   uv run uvicorn tarachat.main:app --reload
+   uv run uvicorn tarachat.app:app --reload
 
 API Endpoints
 -------------

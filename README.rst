@@ -140,7 +140,7 @@ Backend
 
    cd backend
    uv sync
-   uv run uvicorn tarachat.main:app --reload
+   uv run uvicorn tarachat.app:app --reload
 
 Frontend
 ~~~~~~~~

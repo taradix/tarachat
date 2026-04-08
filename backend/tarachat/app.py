@@ -81,13 +81,3 @@ async def chat(request: ChatRequest, rag: RAGProtocol = Depends(get_rag_system))
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "tarachat.main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=True
-    )

@@ -8,7 +8,7 @@ services:
       - '8000:8000'
     networks:
       - tarachat-network
-    command: uvicorn --host=0.0.0.0 --port=8000 tarachat.main:app --log-config=/app/log-config.yaml
+    command: uvicorn --host=0.0.0.0 --port=8000 tarachat.app:app --log-config=/app/log-config.yaml
     restart: always
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
