@@ -29,7 +29,7 @@ services:
       - certbot-certs:/etc/letsencrypt
       - certbot-www:/var/www/html
     environment:
-      HOSTNAME: ${HOSTNAME}
+      SERVER_HOSTNAME: ${SERVER_HOSTNAME}
     entrypoint: ""
     command: >
       sh -c "trap exit TERM; while :; do
