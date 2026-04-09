@@ -198,8 +198,8 @@ class RAGSystem:
             recent = conversation_history[-6:]
             history_lines = []
             for msg in recent:
-                role = "Utilisateur" if msg.get("role") == "user" else "Assistant"
-                history_lines.append(f"{role}: {msg.get('content', '')}")
+                role = "Utilisateur" if msg.role == "user" else "Assistant"
+                history_lines.append(f"{role}: {msg.content}")
             history_text = "\n".join(history_lines)
 
         if history_text:
