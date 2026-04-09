@@ -1,8 +1,17 @@
-ARG NGINX_VERSION=1.29.4
+FROM alpine:3.23
 
-FROM nginx:${NGINX_VERSION}-alpine
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
-RUN rm /etc/nginx/conf.d/default.conf
+RUN apk add --no-cache nginx \
+  python3 \
+  py3-pip && \
+  pip install --upgrade pip && \
+  pip install Jinja2
 
-COPY conf.d/ /etc/nginx/conf.d/
-COPY nginx.conf /etc/nginx/nginx.conf
+RUN mkdir -p /etc/nginx/includes
+
+COPY bootstrap.py /
+COPY docker-entrypoint.sh /
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+CMD ["nginx", "-g", "daemon off;"]
