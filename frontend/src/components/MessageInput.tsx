@@ -1,4 +1,4 @@
-import { useState, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import './MessageInput.css';
 
@@ -10,11 +10,17 @@ interface MessageInputProps {
 function MessageInput({ onSendMessage, disabled = false }: MessageInputProps) {
   const { t } = useTranslation();
   const [input, setInput] = useState('');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, [disabled]);
 
   const handleSend = () => {
     if (input.trim() && !disabled) {
       onSendMessage(input);
       setInput('');
+      textareaRef.current?.focus();
     }
   };
 
@@ -29,6 +35,7 @@ function MessageInput({ onSendMessage, disabled = false }: MessageInputProps) {
     <div className="message-input">
       <div className="input-container">
         <textarea
+          ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
