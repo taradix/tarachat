@@ -1,20 +1,6 @@
-import axios from 'axios';
-import { ChatRequest, HealthResponse } from './types';
+import { ChatRequest } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
-
-const api = axios.create({
-  baseURL: API_URL,
-  timeout: 60000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
-export const checkHealth = async (): Promise<HealthResponse> => {
-  const response = await api.get<HealthResponse>('/health');
-  return response.data;
-};
 
 export interface StreamCallbacks {
   onToken: (token: string) => void;

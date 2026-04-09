@@ -17,7 +17,3 @@ export interface ChatResponse {
   response: string;
   sources: string[];
 }
-
-export interface HealthResponse {
-  status: string;
-}

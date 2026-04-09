@@ -6,11 +6,6 @@
     "title": "Taram Chat",
     "subtitle": "Chatbot RAG propulsé par CroissantLLM"
   },
-  "status": {
-    "connecting": "Connexion au serveur...",
-    "ready": "Prêt",
-    "initializing": "Initialisation du modèle..."
-  },
   "chat": {
     "welcome": "Bienvenue sur TaraChat !",
     "startConversation": "Commencez une conversation en tapant un message ci-dessous.",
