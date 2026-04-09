@@ -7,6 +7,7 @@ import pytest
 from langchain_core.documents import Document
 
 from tarachat.config import Settings
+from tarachat.models import ChatMessage
 from tarachat.rag import RAGSystem
 
 
@@ -40,8 +41,8 @@ class TestBuildPrompt:
     def test_prompt_with_history(self, rag):
         docs = [Document(page_content="ctx")]
         history = [
-            {"role": "user", "content": "Hi"},
-            {"role": "assistant", "content": "Hello"},
+            ChatMessage(role="user", content="Hi"),
+            ChatMessage(role="assistant", content="Hello"),
         ]
         result = rag._build_prompt("Q?", docs, history)
         assert "Historique de la conversation" in result
@@ -50,7 +51,7 @@ class TestBuildPrompt:
 
     def test_prompt_truncates_history_to_6(self, rag):
         docs = [Document(page_content="ctx")]
-        history = [{"role": "user", "content": f"msg{i}"} for i in range(10)]
+        history = [ChatMessage(role="user", content=f"msg{i}") for i in range(10)]
         result = rag._build_prompt("Q?", docs, history)
         # Only last 6 should appear
         assert "msg4" in result

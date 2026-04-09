@@ -14,11 +14,33 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from transformers import AutoModelForCausalLM, AutoTokenizer, TextIteratorStreamer
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    StoppingCriteria,
+    StoppingCriteriaList,
+    TextIteratorStreamer,
+)
 
 from tarachat.config import Settings
 
 logger = logging.getLogger(__name__)
+
+_STOP_PHRASE = "Question :"
+
+
+class _StopOnPhrase(StoppingCriteria):
+    """Stop generation when the decoded tail contains the stop phrase."""
+
+    def __init__(self, tokenizer: AutoTokenizer, stop_phrase: str) -> None:
+        self._tokenizer = tokenizer
+        self._stop_phrase = stop_phrase
+        # Encode to know the max number of new tokens to check
+        self._check_len = len(tokenizer.encode(stop_phrase, add_special_tokens=False)) + 2
+
+    def __call__(self, input_ids: torch.LongTensor, scores: torch.FloatTensor, **kwargs: Any) -> bool:
+        tail = self._tokenizer.decode(input_ids[0, -self._check_len :], skip_special_tokens=True)
+        return self._stop_phrase in tail
 
 
 @runtime_checkable
@@ -251,6 +273,9 @@ Réponse :"""
             "do_sample": True,
             "num_beams": 1,
             "pad_token_id": self.tokenizer.eos_token_id,
+            "stopping_criteria": StoppingCriteriaList([
+                _StopOnPhrase(self.tokenizer, _STOP_PHRASE),
+            ]),
         }
 
     def _stream_tokens(
@@ -270,7 +295,20 @@ Réponse :"""
         thread = Thread(target=self.model.generate, kwargs=kwargs)
         thread.start()
 
-        yield from streamer
+        buffer = ""
+        for token in streamer:
+            buffer += token
+            # Stop yielding if the stop phrase appears in accumulated text
+            if _STOP_PHRASE in buffer:
+                clean = buffer[: buffer.index(_STOP_PHRASE)].rstrip()
+                if clean:
+                    yield clean
+                break
+            # Yield everything except a trailing partial match of the stop phrase
+            safe = len(buffer) - len(_STOP_PHRASE)
+            if safe > 0:
+                yield buffer[:safe]
+                buffer = buffer[safe:]
 
         thread.join()
 
