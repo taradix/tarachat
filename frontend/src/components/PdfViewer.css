@@ -1,0 +1,134 @@
+.pdf-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.pdf-modal {
+  display: flex;
+  flex-direction: column;
+  width: 90vw;
+  height: 90vh;
+  max-width: 900px;
+  background-color: #1a1a1a;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pdf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: #2a2a2a;
+  border-bottom: 1px solid #3a3a3a;
+}
+
+.pdf-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #ffffff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pdf-close {
+  background: none;
+  border: none;
+  color: #a0a0a0;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.pdf-close:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.pdf-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background-color: #ffffff;
+}
+
+.source-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background-color: rgba(0, 0, 0, 0.1);
+  border: none;
+  border-left: 2px solid #4a90e2;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.15s;
+}
+
+.source-link:hover {
+  background-color: rgba(74, 144, 226, 0.15);
+}
+
+.source-filename {
+  font-size: 0.8rem;
+  color: #4a90e2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-page {
+  font-size: 0.75rem;
+  color: #a0a0a0;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: light) {
+  .pdf-modal {
+    background-color: #ffffff;
+  }
+
+  .pdf-header {
+    background-color: #f5f5f5;
+    border-bottom-color: #e0e0e0;
+  }
+
+  .pdf-title {
+    color: #1a1a1a;
+  }
+
+  .pdf-close {
+    color: #666666;
+  }
+
+  .pdf-close:hover {
+    color: #1a1a1a;
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+  .source-link {
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+
+  .source-link:hover {
+    background-color: rgba(74, 144, 226, 0.1);
+  }
+
+  .source-filename {
+    color: #2a6cb6;
+  }
+
+  .source-page {
+    color: #666666;
+  }
+}

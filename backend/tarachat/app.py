@@ -1,12 +1,14 @@
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 
 from tarachat.config import get_settings
 from tarachat.models import ChatRequest, HealthResponse
+from tarachat.pdf_serve import serve_pdf
 from tarachat.rag import RAGProtocol, RAGSystem, _detect_device
 
 logger = logging.getLogger(__name__)
@@ -80,4 +82,23 @@ async def chat(request: ChatRequest, rag: RAGProtocol = Depends(get_rag_system))
         event_generator(),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/documents/{filename}", tags=["Documents"])
+async def get_document(
+    filename: str,
+    page: int | None = Query(None, ge=1, description="Page to centre on (1-based)"),
+    highlights: list[str] = Query([], alias="hl", description="Text to highlight"),
+):
+    """Serve a PDF with optional page selection and text highlighting."""
+    pdf_path = Path(settings.data_path) / "documents" / filename
+    if not pdf_path.is_file():
+        return Response(status_code=404, content="Document not found")
+
+    content = serve_pdf(pdf_path, page=page, highlights=highlights)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )

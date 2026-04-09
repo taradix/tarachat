@@ -1,10 +1,10 @@
-import { ChatRequest } from './types';
+import { ChatRequest, Source } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export interface StreamCallbacks {
   onToken: (token: string) => void;
-  onSources: (sources: string[]) => void;
+  onSources: (sources: Source[]) => void;
   onError: (error: string) => void;
   onDone: () => void;
 }

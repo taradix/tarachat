@@ -95,24 +95,31 @@ class TestBuildDemoResponse:
 
 
 class TestExtractSources:
-    def test_source_preview(self, rag):
-        docs = [Document(page_content="Hello world from document")]
+    def test_source_returns_structured_dict(self, rag):
+        docs = [Document(page_content="[Page 3]\nHello world from document", metadata={"filename": "test.pdf"})]
         sources = rag._extract_sources(docs)
         assert len(sources) == 1
-        assert sources[0].endswith("...")
+        assert sources[0]["filename"] == "test.pdf"
+        assert sources[0]["page"] == 3
+        assert "Hello world" in sources[0]["snippet"]
 
     def test_multiple_sources(self, rag):
         docs = [
-            Document(page_content="Doc A"),
-            Document(page_content="Doc B"),
+            Document(page_content="Doc A", metadata={"filename": "a.pdf"}),
+            Document(page_content="Doc B", metadata={"filename": "b.pdf"}),
         ]
         sources = rag._extract_sources(docs)
         assert len(sources) == 2
 
-    def test_long_source_truncated(self, rag):
-        docs = [Document(page_content="x" * 200)]
+    def test_snippet_truncated(self, rag):
+        docs = [Document(page_content="x" * 200, metadata={"filename": "big.pdf"})]
         sources = rag._extract_sources(docs)
-        assert len(sources[0]) == 103  # 100 chars + "..."
+        assert len(sources[0]["snippet"]) == 120
+
+    def test_defaults_to_page_1_when_no_marker(self, rag):
+        docs = [Document(page_content="No page marker here", metadata={})]
+        sources = rag._extract_sources(docs)
+        assert sources[0]["page"] == 1
 
 
 class TestRetrieveDocuments:

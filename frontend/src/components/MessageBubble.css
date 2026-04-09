@@ -71,15 +71,6 @@
   gap: 0.5rem;
 }
 
-.source-item {
-  padding: 0.5rem;
-  background-color: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-  font-size: 0.8rem;
-  color: #d0d0d0;
-  border-left: 2px solid #4a90e2;
-}
-
 @media (prefers-color-scheme: light) {
   .message-bubble.assistant .message-text {
     background-color: #e0e0e0;
@@ -92,10 +83,5 @@
 
   .message-sources details {
     background-color: rgba(0, 0, 0, 0.05);
-  }
-
-  .source-item {
-    background-color: rgba(0, 0, 0, 0.03);
-    color: #333333;
   }
 }

@@ -25,7 +25,7 @@ describe('Chat', () => {
       async (_req, callbacks) => {
         callbacks.onToken('Hello ')
         callbacks.onToken('back!')
-        callbacks.onSources(['doc.pdf'])
+        callbacks.onSources([{ filename: 'doc.pdf', page: 1, snippet: 'text' }])
         callbacks.onDone()
       },
     )

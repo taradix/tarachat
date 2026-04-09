@@ -35,7 +35,10 @@ describe('MessageBubble', () => {
     const msg: Message = {
       ...baseMessage,
       role: 'assistant',
-      sources: ['doc1.pdf', 'doc2.pdf'],
+      sources: [
+        { filename: 'doc1.pdf', page: 1, snippet: 'text1' },
+        { filename: 'doc2.pdf', page: 3, snippet: 'text2' },
+      ],
     }
     render(<MessageBubble message={msg} />)
     expect(screen.getByText('Sources (2)')).toBeInTheDocument()

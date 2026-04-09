@@ -5,6 +5,7 @@ services:
     volumes:
       - backend-cache:/root/.cache
       - backend-data:/app/vector_store
+      - backend-docs:/app/data/documents
     ulimits:
       memlock: -1
       stack: 67108864
@@ -92,6 +93,7 @@ networks:
 volumes:
   backend-cache:
   backend-data:
+  backend-docs:
   certbot-www:
   certbot-certs:
 

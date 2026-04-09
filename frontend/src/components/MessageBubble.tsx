@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Message } from '../types';
+import { SourceLink } from './PdfViewer';
 import './MessageBubble.css';
 
 interface MessageBubbleProps {
@@ -20,9 +21,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
               <summary>{t('chat.sources', { count: message.sources.length })}</summary>
               <div className="sources-list">
                 {message.sources.map((source, index) => (
-                  <div key={index} className="source-item">
-                    {source}
-                  </div>
+                  <SourceLink key={index} source={source} />
                 ))}
               </div>
             </details>

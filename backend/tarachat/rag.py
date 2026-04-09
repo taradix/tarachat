@@ -254,9 +254,25 @@ Réponse :"""
             return response
         return "Désolé, je n'ai pas trouvé d'informations pertinentes dans la base de connaissances pour répondre à votre question."
 
-    def _extract_sources(self, docs: list[Document]) -> list[str]:
-        """Extract source previews from retrieved documents."""
-        return [doc.page_content[:100] + "..." for doc in docs]
+    def _extract_sources(self, docs: list[Document]) -> list[dict]:
+        """Extract structured source info from retrieved documents.
+
+        Each source includes the filename, starting page number, and
+        a short text snippet suitable for highlighting in the PDF.
+        """
+        import re
+
+        sources: list[dict] = []
+        for doc in docs:
+            filename = doc.metadata.get("filename", "")
+            # Extract first [Page N] marker from chunk content
+            m = re.search(r"\[Page (\d+)\]", doc.page_content)
+            page = int(m.group(1)) if m else 1
+            # Use first ~120 chars of actual text (skip the [Page N] marker) as highlight
+            text = re.sub(r"\[Page \d+\]\n?", "", doc.page_content).strip()
+            snippet = text[:120].strip()
+            sources.append({"filename": filename, "page": page, "snippet": snippet})
+        return sources
 
     def _tokenize_prompt(self, prompt: str) -> dict:
         """Tokenize a prompt and move tensors to the target device."""

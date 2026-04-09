@@ -1,7 +1,13 @@
+export interface Source {
+  filename: string;
+  page: number;
+  snippet: string;
+}
+
 export interface Message {
   role: 'user' | 'assistant';
   content: string;
-  sources?: string[];
+  sources?: Source[];
   timestamp: Date;
 }
 
@@ -11,9 +17,4 @@ export interface ChatRequest {
     role: string;
     content: string;
   }>;
-}
-
-export interface ChatResponse {
-  response: string;
-  sources: string[];
 }
