@@ -20,6 +20,4 @@ export interface ChatResponse {
 
 export interface HealthResponse {
   status: string;
-  model_loaded: boolean;
-  vector_store_ready: boolean;
 }

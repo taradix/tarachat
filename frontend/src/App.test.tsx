@@ -27,8 +27,6 @@ describe('App', () => {
   it('shows ready when health check succeeds', async () => {
     vi.mocked(api.checkHealth).mockResolvedValue({
       status: 'healthy',
-      model_loaded: true,
-      vector_store_ready: true,
     })
 
     render(<App />)
@@ -41,8 +39,6 @@ describe('App', () => {
   it('shows initializing when model not loaded', async () => {
     vi.mocked(api.checkHealth).mockResolvedValue({
       status: 'initializing',
-      model_loaded: false,
-      vector_store_ready: false,
     })
 
     render(<App />)
@@ -55,8 +51,6 @@ describe('App', () => {
   it('renders header and chat components', async () => {
     vi.mocked(api.checkHealth).mockResolvedValue({
       status: 'healthy',
-      model_loaded: true,
-      vector_store_ready: true,
     })
 
     render(<App />)

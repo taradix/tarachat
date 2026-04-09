@@ -14,83 +14,27 @@ describe('StatusBar', () => {
     expect(container.querySelector('.warning')).toBeInTheDocument()
   })
 
-  it('shows ready when healthy and model loaded', () => {
-    const health: HealthResponse = {
-      status: 'healthy',
-      model_loaded: true,
-      vector_store_ready: true,
-    }
+  it('shows ready when healthy', () => {
+    const health: HealthResponse = { status: 'healthy' }
     render(<StatusBar health={health} />)
     expect(screen.getByText('Ready')).toBeInTheDocument()
   })
 
   it('applies ready class when healthy', () => {
-    const health: HealthResponse = {
-      status: 'healthy',
-      model_loaded: true,
-      vector_store_ready: true,
-    }
+    const health: HealthResponse = { status: 'healthy' }
     const { container } = render(<StatusBar health={health} />)
     expect(container.querySelector('.ready')).toBeInTheDocument()
   })
 
-  it('shows initializing when model not loaded', () => {
-    const health: HealthResponse = {
-      status: 'initializing',
-      model_loaded: false,
-      vector_store_ready: false,
-    }
+  it('shows initializing when not healthy', () => {
+    const health: HealthResponse = { status: 'initializing' }
     render(<StatusBar health={health} />)
     expect(screen.getByText('Initializing model...')).toBeInTheDocument()
   })
 
-  it('applies initializing class when not ready', () => {
-    const health: HealthResponse = {
-      status: 'initializing',
-      model_loaded: false,
-      vector_store_ready: false,
-    }
+  it('applies initializing class when not healthy', () => {
+    const health: HealthResponse = { status: 'initializing' }
     const { container } = render(<StatusBar health={health} />)
     expect(container.querySelector('.initializing')).toBeInTheDocument()
-  })
-
-  it('shows model checkmark when model loaded', () => {
-    const health: HealthResponse = {
-      status: 'healthy',
-      model_loaded: true,
-      vector_store_ready: false,
-    }
-    render(<StatusBar health={health} />)
-    expect(screen.getByText(/✓ Model/)).toBeInTheDocument()
-  })
-
-  it('shows model spinner when model not loaded', () => {
-    const health: HealthResponse = {
-      status: 'initializing',
-      model_loaded: false,
-      vector_store_ready: true,
-    }
-    render(<StatusBar health={health} />)
-    expect(screen.getByText(/⏳ Model/)).toBeInTheDocument()
-  })
-
-  it('shows vector store checkmark when ready', () => {
-    const health: HealthResponse = {
-      status: 'healthy',
-      model_loaded: true,
-      vector_store_ready: true,
-    }
-    render(<StatusBar health={health} />)
-    expect(screen.getByText(/✓ Vector Store/)).toBeInTheDocument()
-  })
-
-  it('shows vector store spinner when not ready', () => {
-    const health: HealthResponse = {
-      status: 'initializing',
-      model_loaded: false,
-      vector_store_ready: false,
-    }
-    render(<StatusBar health={health} />)
-    expect(screen.getByText(/⏳ Vector Store/)).toBeInTheDocument()
   })
 })

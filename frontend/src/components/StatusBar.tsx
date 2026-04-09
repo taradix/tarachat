@@ -15,17 +15,12 @@ function StatusBar({ health }: StatusBarProps) {
     );
   }
 
-  const isReady = health.status === 'healthy' && health.model_loaded;
+  const isReady = health.status === 'healthy';
 
   return (
     <div className={`status-bar ${isReady ? 'ready' : 'initializing'}`}>
       <span className="status-indicator"></span>
       {isReady ? 'Ready' : 'Initializing model...'}
-      <span className="status-details">
-        {health.model_loaded ? '✓ Model' : '⏳ Model'}
-        {' | '}
-        {health.vector_store_ready ? '✓ Vector Store' : '⏳ Vector Store'}
-      </span>
     </div>
   );
 }
