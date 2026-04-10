@@ -36,6 +36,7 @@ check: $(VENV)
 .PHONY: test
 test: $(VENV)
 	@echo "==> Testing Python code..."
+	@$(RUN) coverage erase
 	@$(RUN) coverage run -p -m pytest
 
 .PHONY: coverage

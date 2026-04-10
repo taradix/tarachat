@@ -9,7 +9,7 @@ interface CitationTextProps {
   sources?: Source[];
 }
 
-const CITATION_RE = /\[([^\[\]]+#page=\d+)\]/g;
+export const CITATION_RE = /\[([^[\]]+#page=\d+)\]/g;
 
 /** Parse a citation ref like `doc.pdf#page=5` into filename + page. */
 function parseCitation(ref: string): { filename: string; page: number } {
