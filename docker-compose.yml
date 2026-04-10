@@ -12,6 +12,10 @@ services:
     runtime: nvidia
     environment:
       NVIDIA_VISIBLE_DEVICES: all
+      CHUNK_SIZE: ${CHUNK_SIZE:-512}
+      CHUNK_OVERLAP: ${CHUNK_OVERLAP:-50}
+      MAX_TOKENS: ${MAX_TOKENS:-512}
+      TOP_K: ${TOP_K:-5}
     networks:
       default:
         aliases:
