@@ -159,3 +159,26 @@ class TestSanitizeFilename:
     def test_fallback_when_only_dots(self):
         result = sanitize_filename("...", ".pdf")
         assert result == "_.pdf"
+
+    def test_truncates_long_filename(self):
+        long_text = "Règlement numéro 04.03.2013 " + "A" * 300
+        result = sanitize_filename(long_text, ".pdf")
+        # Must fit within 245 bytes (255 - len(".meta.json"))
+        assert len(result.encode("utf-8")) <= 245
+        assert result.endswith(".pdf")
+
+    def test_truncated_filename_contains_hash(self):
+        long_text = "A" * 300
+        result = sanitize_filename(long_text, ".pdf")
+        # The 8-char hex hash should appear before the extension
+        import re
+        assert re.search(r"_[0-9a-f]{8}\.pdf$", result)
+
+    def test_different_long_texts_produce_different_names(self):
+        a = sanitize_filename("A" * 300, ".pdf")
+        b = sanitize_filename("B" * 300, ".pdf")
+        assert a != b
+
+    def test_short_filename_unchanged(self):
+        name = "short.pdf"
+        assert sanitize_filename("short", ".pdf") == name

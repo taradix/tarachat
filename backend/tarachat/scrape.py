@@ -1,6 +1,7 @@
 """Scrape the web for documents."""
 
 import asyncio
+import hashlib
 import json
 import logging
 import re
@@ -19,6 +20,10 @@ DEFAULT_CHUNK_SIZE = 1024 * 1024
 
 # Characters forbidden in filenames on Windows and/or Linux.
 _FILENAME_BAD_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+
+# Most filesystems cap filename length at 255 bytes. Reserve room for the
+# ".meta.json" sidecar suffix (10 bytes) that meta_path_for() appends.
+_MAX_FILENAME_BYTES = 255 - len(".meta.json")
 
 
 def meta_path_for(file_path: Path) -> Path:
@@ -56,6 +61,10 @@ def has_changed(local_meta: dict, remote_meta: dict) -> bool:
 def sanitize_filename(text: str, extension: str = "") -> str:
     """Turn *text* into a safe filename, preserving non-ASCII characters.
 
+    Long filenames are truncated to fit within filesystem limits (255 bytes
+    minus room for the ``.meta.json`` sidecar).  A short hash is appended
+    when truncation occurs so that distinct original names stay distinct.
+
     >>> sanitize_filename("Règlement numéro 06.06.2025", ".pdf")
     'Règlement numéro 06.06.2025.pdf'
     >>> sanitize_filename('a/b:c*d', '.txt')
@@ -67,6 +76,20 @@ def sanitize_filename(text: str, extension: str = "") -> str:
     # Ensure the proper extension is present.
     if extension and not name.lower().endswith(extension.lower()):
         name += extension
+
+    # Truncate if the UTF-8 encoded filename exceeds the byte budget.
+    if len(name.encode("utf-8")) > _MAX_FILENAME_BYTES:
+        digest = hashlib.sha256(name.encode("utf-8")).hexdigest()[:8]
+        suffix = f"_{digest}{extension}"
+        suffix_bytes = len(suffix.encode("utf-8"))
+        budget = _MAX_FILENAME_BYTES - suffix_bytes
+
+        # Strip the original extension before truncating the stem.
+        stem = name[: -len(extension)] if extension else name
+        encoded = stem.encode("utf-8")
+        truncated = encoded[:budget].decode("utf-8", errors="ignore")
+        name = truncated.rstrip() + suffix
+
     return name
 
 
