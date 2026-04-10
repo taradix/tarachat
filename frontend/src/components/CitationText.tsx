@@ -37,7 +37,7 @@ function CitationText({ content, sources }: CitationTextProps) {
   function handleClick(ref: string) {
     const { filename, page } = parseCitation(ref);
     const found = sources?.find((s) => s.filename === filename && s.page === page);
-    setViewerSource(found ?? { filename, page, snippet: '' });
+    setViewerSource(found ?? { filename, page, highlights: [] });
   }
 
   return (

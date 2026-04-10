@@ -13,8 +13,8 @@ interface PdfViewerProps {
 function buildPdfUrl(source: Source): string {
   const params = new URLSearchParams();
   params.set('page', String(source.page));
-  if (source.snippet) {
-    params.append('hl', source.snippet);
+  for (const hl of source.highlights) {
+    params.append('hl', hl);
   }
   return `${API_URL}/documents/${encodeURIComponent(source.filename)}?${params}`;
 }

@@ -36,8 +36,8 @@ describe('MessageBubble', () => {
       ...baseMessage,
       role: 'assistant',
       sources: [
-        { filename: 'doc1.pdf', page: 1, snippet: 'text1' },
-        { filename: 'doc2.pdf', page: 3, snippet: 'text2' },
+        { filename: 'doc1.pdf', page: 1, highlights: ['text1'] },
+        { filename: 'doc2.pdf', page: 3, highlights: ['text2'] },
       ],
     }
     render(<MessageBubble message={msg} />)
@@ -63,8 +63,8 @@ describe('MessageBubble', () => {
       role: 'assistant',
       content: 'The answer is here [doc.pdf#page=5] and more [other.pdf#page=2].',
       sources: [
-        { filename: 'doc.pdf', page: 5, snippet: 'answer' },
-        { filename: 'other.pdf', page: 2, snippet: 'more' },
+        { filename: 'doc.pdf', page: 5, highlights: ['answer'] },
+        { filename: 'other.pdf', page: 2, highlights: ['more'] },
       ],
     }
     const { container } = render(<MessageBubble message={msg} />)
@@ -80,8 +80,8 @@ describe('MessageBubble', () => {
       role: 'assistant',
       content: 'First [a.pdf#page=1] then [b.pdf#page=2] and again [a.pdf#page=1].',
       sources: [
-        { filename: 'a.pdf', page: 1, snippet: 'first' },
-        { filename: 'b.pdf', page: 2, snippet: 'then' },
+        { filename: 'a.pdf', page: 1, highlights: ['first'] },
+        { filename: 'b.pdf', page: 2, highlights: ['then'] },
       ],
     }
     const { container } = render(<MessageBubble message={msg} />)

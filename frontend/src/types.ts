@@ -1,7 +1,7 @@
 export interface Source {
   filename: string;
   page: number;
-  snippet: string;
+  highlights: string[];
 }
 
 export interface Message {

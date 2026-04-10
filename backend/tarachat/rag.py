@@ -289,20 +289,27 @@ Réponse :"""
     def _extract_sources(self, docs: list[Document]) -> list[dict]:
         """Extract structured source info from retrieved documents.
 
-        Each source includes the filename, starting page number, and
-        a short text snippet suitable for highlighting in the PDF.
+        Deduplicates by (filename, page) and collects multiple highlight
+        snippets per source for richer PDF highlighting.
         """
-        sources: list[dict] = []
+        seen: dict[tuple[str, int], list[str]] = {}
+        order: list[tuple[str, int]] = []
         for doc in docs:
             filename = doc.metadata.get("filename", "")
-            # Extract first [Page N] marker from chunk content
             m = re.search(r"\[Page (\d+)\]", doc.page_content)
             page = int(m.group(1)) if m else 1
-            # Use first ~120 chars of actual text (skip the [Page N] marker) as highlight
             text = re.sub(r"\[Page \d+\]\n?", "", doc.page_content).strip()
             snippet = text[:120].strip()
-            sources.append({"filename": filename, "page": page, "snippet": snippet})
-        return sources
+            key = (filename, page)
+            if key not in seen:
+                seen[key] = []
+                order.append(key)
+            if snippet and snippet not in seen[key]:
+                seen[key].append(snippet)
+        return [
+            {"filename": f, "page": p, "highlights": seen[(f, p)]}
+            for f, p in order
+        ]
 
     def _tokenize_prompt(self, prompt: str) -> dict:
         """Tokenize a prompt and move tensors to the target device."""

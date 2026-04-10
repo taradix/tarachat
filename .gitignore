@@ -6,3 +6,4 @@ env/
 
 # Lint checker
 node_modules/
+.coverage

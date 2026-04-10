@@ -101,7 +101,7 @@ class TestExtractSources:
         assert len(sources) == 1
         assert sources[0]["filename"] == "test.pdf"
         assert sources[0]["page"] == 3
-        assert "Hello world" in sources[0]["snippet"]
+        assert any("Hello world" in h for h in sources[0]["highlights"])
 
     def test_multiple_sources(self, rag):
         docs = [
@@ -111,15 +111,32 @@ class TestExtractSources:
         sources = rag._extract_sources(docs)
         assert len(sources) == 2
 
-    def test_snippet_truncated(self, rag):
+    def test_highlight_truncated(self, rag):
         docs = [Document(page_content="x" * 200, metadata={"filename": "big.pdf"})]
         sources = rag._extract_sources(docs)
-        assert len(sources[0]["snippet"]) == 120
+        assert len(sources[0]["highlights"][0]) == 120
 
     def test_defaults_to_page_1_when_no_marker(self, rag):
         docs = [Document(page_content="No page marker here", metadata={})]
         sources = rag._extract_sources(docs)
         assert sources[0]["page"] == 1
+
+    def test_deduplicates_by_filename_and_page(self, rag):
+        docs = [
+            Document(page_content="[Page 2]\nChunk A content here", metadata={"filename": "doc.pdf"}),
+            Document(page_content="[Page 2]\nChunk B content here", metadata={"filename": "doc.pdf"}),
+        ]
+        sources = rag._extract_sources(docs)
+        assert len(sources) == 1
+        assert len(sources[0]["highlights"]) == 2
+
+    def test_different_pages_not_deduplicated(self, rag):
+        docs = [
+            Document(page_content="[Page 1]\nFirst page", metadata={"filename": "doc.pdf"}),
+            Document(page_content="[Page 2]\nSecond page", metadata={"filename": "doc.pdf"}),
+        ]
+        sources = rag._extract_sources(docs)
+        assert len(sources) == 2
 
 
 class TestRetrieveDocuments:
