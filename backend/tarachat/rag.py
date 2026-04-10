@@ -1,6 +1,7 @@
 
 import json
 import logging
+import re
 from collections.abc import Generator
 from pathlib import Path
 from threading import Thread
@@ -114,6 +115,14 @@ def _load_vector_store(
     return vector_store
 
 
+def _source_ref(doc: Document) -> str:
+    """Build a citation reference like ``file.pdf#page=5`` from a Document."""
+    filename = doc.metadata.get("filename", "")
+    m = re.search(r"\[Page (\d+)\]", doc.page_content)
+    page = int(m.group(1)) if m else 1
+    return f"{filename}#page={page}"
+
+
 @define
 class RAGSystem:
     """RAG system using CroissantLLM and FAISS."""
@@ -220,7 +229,17 @@ class RAGSystem:
         conversation_history: list[dict] | None = None,
     ) -> str:
         """Build the LLM prompt from context, history, and query."""
-        context = "\n\n".join([doc.page_content for doc in context_docs])
+        context_parts = []
+        for doc in context_docs:
+            ref = _source_ref(doc)
+            text = re.sub(r"\[Page \d+\]\n?", "", doc.page_content).strip()
+            context_parts.append(f"[{ref}]: {text}")
+        context = "\n\n".join(context_parts)
+
+        citation_instruction = (
+            "Cite tes sources entre crochets, par exemple [fichier.pdf#page=3]. "
+            "Ne combine pas les sources : [a.pdf#page=1][b.pdf#page=2]."
+        )
 
         history_text = ""
         if conversation_history:
@@ -232,7 +251,9 @@ class RAGSystem:
             history_text = "\n".join(history_lines)
 
         if history_text:
-            return f"""Voici du contexte pertinent :
+            return f"""{citation_instruction}
+
+Voici du contexte pertinent :
 
 {context}
 
@@ -243,7 +264,9 @@ Question : {query}
 
 Réponse :"""
         else:
-            return f"""Voici du contexte pertinent :
+            return f"""{citation_instruction}
+
+Voici du contexte pertinent :
 
 {context}
 
@@ -254,11 +277,13 @@ Réponse :"""
     def _build_demo_response(self, docs: list[Document]) -> str:
         """Build a demo-mode response from retrieved documents (no LLM)."""
         if docs:
-            snippets = [doc.page_content[:300].strip() for doc in docs[:2]]
-            response = f"Voici ce que j'ai trouvé dans les documents:\n\n{snippets[0]}"
-            if len(snippets) > 1:
-                response += f"\n\n{snippets[1]}"
-            return response
+            parts = []
+            for doc in docs[:2]:
+                ref = _source_ref(doc)
+                text = re.sub(r"\[Page \d+\]\n?", "", doc.page_content).strip()
+                snippet = text[:300].strip()
+                parts.append(f"{snippet} [{ref}]")
+            return "Voici ce que j'ai trouvé dans les documents:\n\n" + "\n\n".join(parts)
         return "Désolé, je n'ai pas trouvé d'informations pertinentes dans la base de connaissances pour répondre à votre question."
 
     def _extract_sources(self, docs: list[Document]) -> list[dict]:
@@ -267,8 +292,6 @@ Réponse :"""
         Each source includes the filename, starting page number, and
         a short text snippet suitable for highlighting in the PDF.
         """
-        import re
-
         sources: list[dict] = []
         for doc in docs:
             filename = doc.metadata.get("filename", "")

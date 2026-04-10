@@ -11,7 +11,7 @@ describe('Header', () => {
   it('renders the subtitle', () => {
     render(<Header />)
     expect(
-      screen.getByText('RAG-powered chatbot with CroissantLLM'),
+      screen.getByText('Bylaws - Municipality of Notre-Dame-du-Laus'),
     ).toBeInTheDocument()
   })
 

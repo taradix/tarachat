@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Message } from '../types';
 import { SourceLink } from './PdfViewer';
+import CitationText from './CitationText';
 import './MessageBubble.css';
 
 interface MessageBubbleProps {
@@ -9,12 +10,13 @@ interface MessageBubbleProps {
 
 function MessageBubble({ message }: MessageBubbleProps) {
   const { t, i18n } = useTranslation();
-  const isUser = message.role === 'user';
 
   return (
-    <div className={`message-bubble ${isUser ? 'user' : 'assistant'}`}>
+    <div className={`message-bubble ${message.role === 'user' ? 'user' : 'assistant'}`}>
       <div className="message-content">
-        <div className="message-text">{message.content}</div>
+        <div className="message-text">
+          <CitationText content={message.content} sources={message.sources} />
+        </div>
         {message.sources && message.sources.length > 0 && (
           <div className="message-sources">
             <details>

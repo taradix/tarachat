@@ -1,0 +1,33 @@
+.inline-citation {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.3em;
+  height: 1.3em;
+  font-size: 0.7em;
+  font-weight: 600;
+  line-height: 1;
+  color: #ffffff;
+  background-color: #4a90e2;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  vertical-align: super;
+  margin: 0 1px;
+  padding: 0 2px;
+  transition: background-color 0.15s;
+}
+
+.inline-citation:hover {
+  background-color: #357abd;
+}
+
+@media (prefers-color-scheme: light) {
+  .inline-citation {
+    background-color: #2a6cb6;
+  }
+
+  .inline-citation:hover {
+    background-color: #1d5a9e;
+  }
+}
