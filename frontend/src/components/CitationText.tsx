@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import { Source } from '../types';
 import PdfViewer from './PdfViewer';
 import './CitationText.css';
@@ -23,6 +24,7 @@ function CitationText({ content, sources }: CitationTextProps) {
 
   // Assign a stable number to each unique citation ref
   const citationMap = new Map<string, number>();
+  CITATION_RE.lastIndex = 0;
   let match: RegExpExecArray | null;
   while ((match = CITATION_RE.exec(content)) !== null) {
     const ref = match[1];
@@ -31,8 +33,13 @@ function CitationText({ content, sources }: CitationTextProps) {
     }
   }
 
-  // Split content into alternating [text, ref, text, ref, …] parts
-  const parts = content.split(CITATION_RE);
+  // Transform [file.pdf#page=N] into [N](citation://file.pdf#page=N) so
+  // react-markdown can parse them as links while we intercept the render.
+  CITATION_RE.lastIndex = 0;
+  const transformed = content.replace(CITATION_RE, (_, ref) => {
+    const num = citationMap.get(ref) ?? 0;
+    return `[${num}](citation://${ref})`;
+  });
 
   function handleClick(ref: string) {
     const { filename, page } = parseCitation(ref);
@@ -42,23 +49,31 @@ function CitationText({ content, sources }: CitationTextProps) {
 
   return (
     <>
-      {parts.map((part, i) => {
-        if (i % 2 === 0) {
-          return <span key={i}>{part}</span>;
+      <ReactMarkdown
+        urlTransform={(url) =>
+          url.startsWith('citation://') ? url : defaultUrlTransform(url)
         }
-        const num = citationMap.get(part) ?? 0;
-        const { filename, page } = parseCitation(part);
-        return (
-          <button
-            key={i}
-            className="inline-citation"
-            title={`${filename} — ${t('pdf.page', { page })}`}
-            onClick={() => handleClick(part)}
-          >
-            {num}
-          </button>
-        );
-      })}
+        components={{
+          a({ href, children }) {
+            if (href?.startsWith('citation://')) {
+              const ref = href.slice('citation://'.length);
+              const { filename, page } = parseCitation(ref);
+              return (
+                <button
+                  className="inline-citation"
+                  title={`${filename} — ${t('pdf.page', { page })}`}
+                  onClick={() => handleClick(ref)}
+                >
+                  {children}
+                </button>
+              );
+            }
+            return <a href={href}>{children}</a>;
+          },
+        }}
+      >
+        {transformed}
+      </ReactMarkdown>
       {viewerSource && (
         <PdfViewer source={viewerSource} onClose={() => setViewerSource(null)} />
       )}
