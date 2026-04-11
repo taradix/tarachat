@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     # Model Configuration
-    model_name: str = "croissantllm/CroissantLLMChat-v0.1"
+    model_name: str = "Qwen/Qwen2.5-3B-Instruct"
     embedding_model: str = "OrdalieTech/Solon-embeddings-large-0.1"
 
     # RAG Configuration
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Performance Configuration
     demo_mode: bool = False  # Set to True for fast responses without LLM (testing/development)
-    max_tokens: int = 128  # Reduced from 512 for faster generation
+    max_tokens: int = 512
 
     # Paths
     data_path: str = "./data"

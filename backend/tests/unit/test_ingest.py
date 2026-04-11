@@ -6,25 +6,15 @@ import pytest
 from tarachat.ingest import DocumentManager
 
 
-class FakeVectorStore:
-    def __init__(self):
-        self.saved = False
-
-    def save_local(self, path):
-        self.saved = True
-
-
 class FakeRAG:
     def __init__(self):
-        self.model = object()
-        self.vector_store = FakeVectorStore()
         self.added: list[tuple[list, list]] = []
 
     def add_documents(self, texts, metadatas=None):
         self.added.append((texts, metadatas))
 
-    def create_empty_vector_store(self):
-        return FakeVectorStore()
+    def reset_vector_store(self):
+        pass
 
 
 def _fake_read_pdf(pdf_bytes: bytes) -> tuple[str, dict]:

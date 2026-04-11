@@ -12,14 +12,10 @@ from tarachat.testing.logger import LoggerHandler
 
 
 class FakeRAGSystem:
-    """Minimal RAG system that responds without ML models.
+    """Minimal RAG pipeline that responds without ML models.
 
     Implements :class:`~tarachat.rag.RAGProtocol`.
     """
-
-    def __init__(self):
-        self.model = object()
-        self.vector_store = object()
 
     def add_documents(self, texts, metadatas=None):
         pass
@@ -27,8 +23,8 @@ class FakeRAGSystem:
     def retrieve_documents(self, query, k=None):
         return []
 
-    def create_empty_vector_store(self):
-        return object()
+    def reset_vector_store(self):
+        pass
 
     def chat(self, message: str, conversation_history: list | None = None):
         yield {"type": "token", "content": f"Echo: {message}"}

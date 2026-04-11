@@ -150,7 +150,7 @@ class DocumentManager:
         """Rebuild the entire vector store from stored content."""
         logger.info("Rebuilding vector store...")
 
-        self.rag.vector_store = self.rag.create_empty_vector_store()
+        self.rag.reset_vector_store()
 
         with sqlite3.connect(self.db_path) as conn:
             rows = conn.execute("SELECT id, content, metadata FROM documents").fetchall()
@@ -161,8 +161,6 @@ class DocumentManager:
             self.rag.add_documents(texts, metadatas)
             logger.info(f"✓ Rebuilt vector store with {len(rows)} documents")
         else:
-            vector_store_path = self.db_path.parent
-            self.rag.vector_store.save_local(str(vector_store_path))
             logger.info("✓ Vector store cleared (no documents remaining)")
 
     def list_documents(self):
@@ -197,11 +195,7 @@ class DocumentManager:
 
         logger.info("Clearing vector store...")
 
-        self.rag.vector_store = self.rag.create_empty_vector_store()
-
-        vector_store_path = self.db_path.parent
-        vector_store_path.mkdir(parents=True, exist_ok=True)
-        self.rag.vector_store.save_local(str(vector_store_path))
+        self.rag.reset_vector_store()
 
         with sqlite3.connect(self.db_path) as conn:
             conn.execute("DELETE FROM documents")
