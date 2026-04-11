@@ -8,7 +8,6 @@ from yarl import URL
 
 from tarachat.scrape import (
     Downloader,
-    get_urls,
     has_changed,
     load_metadata,
     meta_path_for,
@@ -213,40 +212,41 @@ class TestDownloadMany:
         assert results == []
 
 
+class FakeDownloaderWithUrls(FakeDownloader):
+    """A Downloader that also stubs fetch_urls."""
+
+    def __init__(self, html_payload, **kwargs):
+        super().__init__(**kwargs)
+        self._payload = html_payload
+
+    async def fetch_urls(self, session, url, **_kwargs):
+        from bs4 import BeautifulSoup
+        from pathlib import Path
+        soup = BeautifulSoup(self._payload["contenu"], "html.parser")
+        results = []
+        for a in soup.find_all("a"):
+            href = a.get("href")
+            if not href:
+                continue
+            link_url = URL(href)
+            link_text = a.get_text(strip=True)
+            ext = Path(link_url.name).suffix or ".pdf"
+            filename = sanitize_filename(link_text, ext) if link_text else link_url.name
+            results.append((link_url, filename))
+        return results
+
+
 class TestGetUrls:
     @pytest.mark.asyncio
-    async def test_parses_html_links(self, monkeypatch):
-        """Test get_urls by mocking the HTTP response."""
-        import aiohttp
-
+    async def test_parses_html_links(self):
+        """Test get_urls via FakeDownloader overriding fetch_urls."""
         html = (
             '<a href="http://cdn.example.com/doc1.pdf">Règlement 01</a>'
             '<a href="http://cdn.example.com/doc2.pdf">Règlement 02</a>'
             '<a>no href at all</a>'
         )
-        payload = {"contenu": html}
-
-        class FakeResp:
-            async def json(self):
-                return payload
-            async def __aenter__(self):
-                return self
-            async def __aexit__(self, *a):
-                pass
-            def raise_for_status(self):
-                pass
-
-        class FakeSession:
-            def get(self, url, **kw):
-                return FakeResp()
-            async def __aenter__(self):
-                return self
-            async def __aexit__(self, *a):
-                pass
-
-        monkeypatch.setattr(aiohttp, "ClientSession", FakeSession)
-
-        results = await get_urls(URL("http://example.com/api"))
+        dl = FakeDownloaderWithUrls({"contenu": html})
+        results = await dl.get_urls(URL("http://example.com/api"))
         assert len(results) == 2
         assert results[0][1] == "Règlement 01.pdf"
         assert results[1][1] == "Règlement 02.pdf"

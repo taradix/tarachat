@@ -32,6 +32,16 @@ _FILENAME_BAD_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 # ".meta.json" sidecar suffix (10 bytes) that meta_path_for() appends.
 _MAX_FILENAME_BYTES = 255 - len(".meta.json")
 
+_DEFAULT_URL = "https://vplus.modellium.com/api/www.notre-dame-du-laus.ca/structure/detail/reglements?localisation=fr"
+_DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (X11; Linux x86_64; rv:140.0) "
+        "Gecko/20100101 Firefox/140.0"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-CA,en;q=0.8,fr-CA;q=0.7,fr;q=0.6",
+}
+
 
 def meta_path_for(file_path: Path) -> Path:
     return file_path.with_suffix(file_path.suffix + ".meta.json")
@@ -103,9 +113,42 @@ def sanitize_filename(text: str, extension: str = "") -> str:
 class Downloader:
     """Downloads files, skipping unchanged ones based on HTTP metadata.
 
-    Subclass and override :meth:`fetch_metadata` and :meth:`fetch_content`
-    for testing without real network or disk I/O.
+    Subclass and override :meth:`fetch_urls`, :meth:`fetch_metadata`, and
+    :meth:`fetch_content` for testing without real network or disk I/O.
     """
+
+    async def fetch_urls(
+        self, session: aiohttp.ClientSession, url: URL, *, timeout: int = DEFAULT_TIMEOUT,
+    ) -> list[tuple[URL, str]]:
+        """Fetch document listing from *url*. Returns ``(download_url, filename)`` pairs.
+
+        The *filename* is derived from the link text (which preserves
+        non-ASCII characters such as accents) rather than the URL path,
+        since the remote storage may strip those characters from URLs.
+        """
+        async with session.get(url, timeout=timeout) as resp:
+            resp.raise_for_status()
+            data = await resp.json()
+            html_content = data['contenu']
+            soup = BeautifulSoup(html_content, "html.parser")
+            results: list[tuple[URL, str]] = []
+            for a in soup.find_all("a"):
+                href = a.get("href")
+                if not href:
+                    continue
+                link_url = URL(href)
+                link_text = a.get_text(strip=True)
+                ext = Path(link_url.name).suffix or ".pdf"
+                filename = (
+                    sanitize_filename(link_text, ext) if link_text else link_url.name
+                )
+                results.append((link_url, filename))
+            return results
+
+    async def get_urls(self, url: URL, timeout: int = DEFAULT_TIMEOUT) -> list[tuple[URL, str]]:
+        """Open a session and fetch the document listing from *url*."""
+        async with aiohttp.ClientSession(headers=_DEFAULT_HEADERS) as session:
+            return await self.fetch_urls(session, url, timeout=timeout)
 
     async def fetch_metadata(self, session: aiohttp.ClientSession, url: URL) -> dict:
         """Get metadata via HEAD. If it fails, return ``{}``."""
@@ -149,7 +192,7 @@ class Downloader:
         *,
         timeout: int = DEFAULT_TIMEOUT,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
-    ) -> tuple[str, str | None, str]:
+    ) -> tuple[URL, str | None, str]:
         """Download a single URL if it has changed.
 
         *filename* overrides the default (``url.name``) for the local file.
@@ -185,14 +228,14 @@ class Downloader:
         max_concurrency: int = 5,
         timeout: int = DEFAULT_TIMEOUT,
         chunk_size: int = DEFAULT_CHUNK_SIZE,
-    ) -> list[tuple[str, str | None, str]]:
+    ) -> list[tuple[URL, str | None, str]]:
         """Download multiple URLs concurrently if the remote file changed."""
         target_dir = Path(target_dir)
         target_dir.mkdir(parents=True, exist_ok=True)
 
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(headers=_DEFAULT_HEADERS) as session:
 
             async def worker(u: URL, fname: str):
                 async with semaphore:
@@ -204,43 +247,19 @@ class Downloader:
             return await asyncio.gather(*tasks)
 
 
-async def get_urls(url: URL, timeout: int = DEFAULT_TIMEOUT) -> list[tuple[URL, str]]:
-    """Fetch document listing and return ``(download_url, filename)`` pairs.
-
-    The *filename* is derived from the link text (which preserves
-    non-ASCII characters such as accents) rather than the URL path,
-    since the remote storage may strip those characters from URLs.
-    """
-    async with aiohttp.ClientSession() as session, session.get(url, timeout=timeout) as resp:
-        resp.raise_for_status()
-        data = await resp.json()
-        html_content = data['contenu']
-        soup = BeautifulSoup(html_content, "html.parser")
-        results: list[tuple[URL, str]] = []
-        for a in soup.find_all("a"):
-            href = a.get("href")
-            if not href:
-                continue
-            link_url = URL(href)
-            # Derive a proper filename from the link text, falling back to
-            # the URL name when no text is available.
-            link_text = a.get_text(strip=True)
-            ext = Path(link_url.name).suffix or ".pdf"
-            filename = (
-                sanitize_filename(link_text, ext) if link_text else link_url.name
-            )
-            results.append((link_url, filename))
-        return results
-
-
-async def _async_main(target_dir: Path):
-    url = URL("https://vplus.modellium.com/api/www.notre-dame-du-laus.ca/structure/detail/reglements?localisation=fr")
-    url_filename_pairs = await get_urls(url)
-    await Downloader().download_many(url_filename_pairs, target_dir)
+async def _async_main(url: URL, target_dir: Path):
+    downloader = Downloader()
+    url_filename_pairs = await downloader.get_urls(url)
+    await downloader.download_many(url_filename_pairs, target_dir)
 
 
 def main(argv=None):
     parser = ArgumentParser()
+    parser.add_argument(
+        "url",
+        type=URL,
+        default=_DEFAULT_URL,
+    )
     parser.add_argument(
         "destination",
         type=Path,
@@ -257,4 +276,4 @@ def main(argv=None):
 
     setup_logger(args.log_level, args.log_file)
 
-    asyncio.run(_async_main(args.destination))
+    asyncio.run(_async_main(args.url, args.destination))
