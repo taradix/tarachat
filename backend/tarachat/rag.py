@@ -8,8 +8,9 @@ from typing import Any, Protocol, runtime_checkable
 
 import faiss
 import torch
-from attrs import define
+from attrs import define, field
 from langchain_community.docstore.in_memory import InMemoryDocstore
+from langchain_community.retrievers import BM25Retriever
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -140,6 +141,37 @@ def _split_by_pages(text: str) -> list[tuple[int, str]]:
     return sections
 
 
+def _rrf_merge(
+    ranked_lists: list[list[Document]],
+    top_k: int,
+    weights: list[float],
+    rrf_k: int = 60,
+) -> list[Document]:
+    """Merge ranked document lists using weighted Reciprocal Rank Fusion.
+
+    Each document's score is the weighted sum of ``weight / (rrf_k + rank)``
+    across all lists, where rank is 1-based.  Documents appearing in multiple
+    lists accumulate score from each.
+
+    >>> from langchain_core.documents import Document
+    >>> a = Document(page_content="alpha")
+    >>> b = Document(page_content="beta")
+    >>> c = Document(page_content="gamma")
+    >>> result = _rrf_merge([[a, b], [b, c]], top_k=2, weights=[0.5, 0.5])
+    >>> [d.page_content for d in result]
+    ['beta', 'alpha']
+    """
+    scores: dict[int, float] = {}
+    docs: dict[int, Document] = {}
+    for ranked, weight in zip(ranked_lists, weights):
+        for rank, doc in enumerate(ranked, start=1):
+            key = hash(doc.page_content)
+            scores[key] = scores.get(key, 0.0) + weight / (rrf_k + rank)
+            docs[key] = doc
+    ordered = sorted(scores, key=scores.__getitem__, reverse=True)
+    return [docs[k] for k in ordered[:top_k]]
+
+
 @define
 class RAGSystem:
     """RAG system using CroissantLLM and FAISS."""
@@ -151,6 +183,7 @@ class RAGSystem:
     tokenizer: Any
     model: Any
     text_splitter: Any
+    bm25_retriever: Any = field(default=None)
 
     @classmethod
     def create(cls, settings: Settings, device: str) -> "RAGSystem":
@@ -179,11 +212,34 @@ class RAGSystem:
         if device == "cpu":
             model = model.to(device)
 
+        # Token-aware chunking: use the embedding model's tokenizer as the
+        # length function so chunk boundaries respect the model's context window.
+        token_encoder = embeddings.client.tokenizer
+        max_seq_len = embeddings.client.max_seq_length
+        chunk_size = settings.chunk_size
+        if chunk_size > max_seq_len:
+            logger.warning(
+                f"chunk_size={chunk_size} exceeds embedding model "
+                f"max_seq_length={max_seq_len}; capping at {max_seq_len}"
+            )
+            chunk_size = max_seq_len
+
+        def _token_length(text: str) -> int:
+            return len(token_encoder.encode(text, add_special_tokens=False))
+
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=settings.chunk_size,
+            chunk_size=chunk_size,
             chunk_overlap=settings.chunk_overlap,
-            length_function=len,
+            length_function=_token_length,
         )
+
+        # Seed BM25 from the loaded vector store (warm start after re-deploy).
+        bm25_retriever = None
+        if vector_store.index.ntotal > 0:
+            docs = list(vector_store.docstore._dict.values())
+            if docs:
+                bm25_retriever = BM25Retriever.from_documents(docs)
+                bm25_retriever.k = settings.top_k
 
         logger.info("RAG system initialized successfully")
         return cls(
@@ -194,11 +250,21 @@ class RAGSystem:
             tokenizer=tokenizer,
             model=model,
             text_splitter=text_splitter,
+            bm25_retriever=bm25_retriever,
         )
 
     def create_empty_vector_store(self) -> FAISS:
         """Create a new empty FAISS vector store."""
         return _create_empty_vector_store(self.embeddings)
+
+    def _build_bm25_retriever(self) -> Any:
+        """Build a BM25Retriever from the current FAISS docstore contents."""
+        docs = list(self.vector_store.docstore._dict.values())
+        if not docs:
+            return None
+        retriever = BM25Retriever.from_documents(docs)
+        retriever.k = self.settings.top_k
+        return retriever
 
     def add_documents(self, texts: list[str], metadatas: list[dict] | None = None):
         """Add documents to the vector store."""
@@ -224,6 +290,9 @@ class RAGSystem:
         # Add to vector store
         self.vector_store.add_documents(documents)
 
+        # Rebuild BM25 from the updated docstore
+        self.bm25_retriever = self._build_bm25_retriever()
+
         # Save vector store
         vector_store_path = Path(self.settings.vector_store_path)
         vector_store_path.mkdir(parents=True, exist_ok=True)
@@ -232,22 +301,38 @@ class RAGSystem:
         logger.info(f"Added {len(documents)} chunks to vector store")
 
     def retrieve_documents(self, query: str, k: int | None = None) -> list[Document]:
-        """Retrieve relevant documents for a query, filtered by similarity threshold."""
+        """Retrieve relevant documents using hybrid BM25 + dense retrieval.
+
+        When documents are indexed, uses weighted Reciprocal Rank Fusion to
+        merge BM25 (keyword) and FAISS (semantic) results.  Falls back to
+        pure dense retrieval when the corpus is empty (e.g. during tests).
+        """
         if k is None:
             k = self.settings.top_k
 
         if self.vector_store.index.ntotal == 0:
             return []
 
-        results = self.vector_store.similarity_search_with_score(query, k=k)
-        threshold = self.settings.similarity_threshold
-        filtered = []
-        for doc, score in results:
-            logger.debug(f"Doc score={score:.4f} threshold={threshold} file={doc.metadata.get('filename','?')} page={doc.metadata.get('page','?')}")
-            if threshold is None or score <= threshold:
-                filtered.append(doc)
-        logger.info(f"Retrieved {len(results)} docs, {len(filtered)} within threshold {threshold}")
-        return filtered
+        if self.bm25_retriever is None:
+            # Pure dense fallback: no documents in BM25 yet (empty corpus or tests)
+            results = self.vector_store.similarity_search_with_score(query, k=k)
+            threshold = self.settings.similarity_threshold
+            return [
+                doc for doc, score in results
+                if threshold is None or score <= threshold
+            ]
+
+        # Hybrid retrieval: merge BM25 and dense results with weighted RRF
+        self.bm25_retriever.k = k
+        bm25_docs = self.bm25_retriever.invoke(query)
+        dense_docs = self.vector_store.similarity_search(query, k=k)
+        w = self.settings.bm25_weight
+        merged = _rrf_merge([bm25_docs, dense_docs], top_k=k, weights=[w, 1.0 - w])
+        logger.info(
+            f"Hybrid retrieval: BM25={len(bm25_docs)} dense={len(dense_docs)} "
+            f"merged={len(merged)} (bm25_weight={w})"
+        )
+        return merged
 
     def _build_prompt(
         self,

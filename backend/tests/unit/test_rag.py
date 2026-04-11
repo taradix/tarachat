@@ -1,13 +1,13 @@
 """Unit tests for RAGSystem pure methods (no ML models required)."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from langchain_core.documents import Document
 
 from tarachat.config import Settings
 from tarachat.models import ChatMessage
-from tarachat.rag import RAGSystem, _split_by_pages
+from tarachat.rag import RAGSystem, _rrf_merge, _split_by_pages
 
 
 @pytest.fixture
@@ -24,6 +24,7 @@ def rag(tmp_path):
         tokenizer=tokenizer,
         model=MagicMock(),
         text_splitter=MagicMock(**{"split_text.side_effect": lambda text: [text]}),
+        bm25_retriever=None,
     )
 
 
@@ -250,3 +251,75 @@ class TestChat:
         rag.vector_store.index.ntotal = 0
         events = list(rag.chat("hello"))
         assert "Désolé" in events[0]["content"]
+
+
+class TestRRFMerge:
+    def test_doc_in_both_lists_ranks_first(self):
+        shared = Document(page_content="shared")
+        only_a = Document(page_content="only_a")
+        only_b = Document(page_content="only_b")
+        result = _rrf_merge([[shared, only_a], [shared, only_b]], top_k=3, weights=[0.5, 0.5])
+        assert result[0].page_content == "shared"
+
+    def test_top_k_limits_results(self):
+        docs = [Document(page_content=str(i)) for i in range(5)]
+        result = _rrf_merge([docs], top_k=2, weights=[1.0])
+        assert len(result) == 2
+
+    def test_weight_influences_ranking(self):
+        # bm25_doc only in list 0 with high weight; dense_doc only in list 1 with low weight
+        bm25_doc = Document(page_content="bm25")
+        dense_doc = Document(page_content="dense")
+        result = _rrf_merge([[bm25_doc], [dense_doc]], top_k=2, weights=[0.9, 0.1])
+        assert result[0].page_content == "bm25"
+
+    def test_empty_lists_returns_empty(self):
+        assert _rrf_merge([[], []], top_k=5, weights=[0.5, 0.5]) == []
+
+
+class TestHybridRetrieval:
+    def test_uses_hybrid_when_bm25_available(self, rag):
+        doc_bm25 = Document(page_content="keyword match", metadata={"page": 1})
+        doc_dense = Document(page_content="semantic match", metadata={"page": 2})
+        rag.vector_store.index.ntotal = 2
+        rag.bm25_retriever = MagicMock(**{"invoke.return_value": [doc_bm25]})
+        rag.vector_store.similarity_search.return_value = [doc_dense]
+        result = rag.retrieve_documents("query")
+        rag.bm25_retriever.invoke.assert_called_once_with("query")
+        rag.vector_store.similarity_search.assert_called_once()
+        assert len(result) == 2
+
+    def test_falls_back_to_dense_when_no_bm25(self, rag):
+        doc = Document(page_content="dense only")
+        rag.vector_store.index.ntotal = 1
+        rag.bm25_retriever = None
+        rag.vector_store.similarity_search_with_score.return_value = [(doc, 0.3)]
+        result = rag.retrieve_documents("query")
+        rag.vector_store.similarity_search_with_score.assert_called_once()
+        assert result == [doc]
+
+    def test_bm25_k_updated_for_custom_k(self, rag):
+        rag.vector_store.index.ntotal = 5
+        rag.bm25_retriever = MagicMock(**{"invoke.return_value": []})
+        rag.vector_store.similarity_search.return_value = []
+        rag.retrieve_documents("query", k=7)
+        assert rag.bm25_retriever.k == 7
+
+
+class TestBM25Rebuild:
+    def test_bm25_rebuilt_after_add_documents(self, rag, tmp_path):
+        rag.settings.vector_store_path = str(tmp_path / "vs")
+        doc = Document(page_content="test content", metadata={"page": 1})
+        rag.vector_store.docstore._dict = {"id1": doc}
+        with patch("tarachat.rag.BM25Retriever") as mock_bm25_cls:
+            mock_retriever = MagicMock()
+            mock_bm25_cls.from_documents.return_value = mock_retriever
+            rag.add_documents(["test content"])
+            mock_bm25_cls.from_documents.assert_called_once()
+            assert rag.bm25_retriever is mock_retriever
+
+    def test_bm25_none_when_no_docs(self, rag, tmp_path):
+        rag.settings.vector_store_path = str(tmp_path / "vs")
+        rag.vector_store.docstore._dict = {}
+        rag.add_documents(["some text"])
+        assert rag.bm25_retriever is None
