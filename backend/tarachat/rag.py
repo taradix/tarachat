@@ -166,6 +166,28 @@ def _rrf_merge(
     return [docs[k] for k in ordered[:top_k]]
 
 
+@define
+class Reranker:
+    """Cross-encoder reranker that rescores (query, document) pairs.
+
+    Typical usage: retrieve a large candidate set (e.g. top-20 with hybrid
+    retrieval), then rerank to the final top-k.  The cross-encoder scores each
+    ``(query, document)`` pair jointly, which is more accurate than embedding
+    distance but too expensive to run on the full corpus.
+    """
+
+    model: Any  # sentence_transformers.CrossEncoder
+
+    def rerank(self, query: str, docs: list[Document], top_k: int) -> list[Document]:
+        """Return the *top_k* docs sorted by descending cross-encoder score."""
+        if not docs:
+            return docs
+        pairs = [(query, doc.page_content) for doc in docs]
+        scores = self.model.predict(pairs)
+        ranked = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
+        return [doc for doc, _ in ranked[:top_k]]
+
+
 def _extract_sources(docs: list[Document]) -> list[dict]:
     """Extract structured source info from retrieved documents.
 
@@ -373,6 +395,7 @@ class RAGPipeline:
     retriever: Retriever
     prompt_builder: PromptBuilder
     generator: LLMGenerator
+    reranker: Any = field(default=None)
 
     @classmethod
     def create(cls, settings: Settings, device: str) -> "RAGPipeline":
@@ -428,6 +451,12 @@ class RAGPipeline:
                 bm25_retriever = BM25Retriever.from_documents(docs)
                 bm25_retriever.k = settings.top_k
 
+        reranker = None
+        if settings.reranker_model:
+            from sentence_transformers import CrossEncoder
+            logger.info(f"Loading reranker model: {settings.reranker_model}")
+            reranker = Reranker(model=CrossEncoder(settings.reranker_model))
+
         logger.info("RAG pipeline initialized successfully")
         return cls(
             settings=settings,
@@ -445,6 +474,7 @@ class RAGPipeline:
                 model=model,
                 device=device,
             ),
+            reranker=reranker,
         )
 
     def add_documents(self, texts: list[str], metadatas: list[dict] | None = None) -> None:
@@ -483,7 +513,10 @@ class RAGPipeline:
         self, message: str, conversation_history: list[dict] | None = None,
     ) -> Generator[dict, None, None]:
         """Orchestrate retrieval, prompt building, and generation."""
-        docs = self.retriever.retrieve(message)
+        candidate_k = self.settings.rerank_candidates if self.reranker is not None else self.settings.top_k
+        docs = self.retriever.retrieve(message, k=candidate_k)
+        if self.reranker is not None:
+            docs = self.reranker.rerank(message, docs, top_k=self.settings.top_k)
         sources = _extract_sources(docs)
 
         if self.settings.demo_mode:

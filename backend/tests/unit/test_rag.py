@@ -11,6 +11,7 @@ from tarachat.rag import (
     LLMGenerator,
     PromptBuilder,
     RAGPipeline,
+    Reranker,
     Retriever,
     _extract_sources,
     _rrf_merge,
@@ -290,6 +291,31 @@ class TestLLMGenerator:
         assert len(result) < 500
 
 
+class TestReranker:
+    def test_reranks_by_score(self):
+        docs = [
+            Document(page_content="low"),
+            Document(page_content="high"),
+            Document(page_content="mid"),
+        ]
+        model = MagicMock()
+        model.predict.return_value = [0.1, 0.9, 0.5]
+        result = Reranker(model=model).rerank("query", docs, top_k=3)
+        assert [d.page_content for d in result] == ["high", "mid", "low"]
+
+    def test_returns_top_k(self):
+        docs = [Document(page_content=str(i)) for i in range(5)]
+        model = MagicMock()
+        model.predict.return_value = [0.1, 0.5, 0.3, 0.9, 0.2]
+        result = Reranker(model=model).rerank("query", docs, top_k=2)
+        assert len(result) == 2
+        assert result[0].page_content == "3"  # score 0.9
+
+    def test_empty_docs_passthrough(self):
+        model = MagicMock()
+        assert Reranker(model=model).rerank("query", [], top_k=5) == []
+
+
 class TestRAGPipeline:
     def test_empty_texts_is_noop(self, pipeline):
         pipeline.add_documents([])
@@ -335,3 +361,26 @@ class TestRAGPipeline:
         pipeline.retriever.vector_store.index.ntotal = 0
         events = list(pipeline.chat("hello"))
         assert "Désolé" in events[0]["content"]
+
+    def test_reranker_receives_candidate_k(self, pipeline):
+        pipeline.retriever.vector_store.index.ntotal = 10
+        pipeline.retriever.vector_store.similarity_search_with_score.return_value = []
+        reranker = MagicMock()
+        reranker.rerank.return_value = []
+        pipeline.reranker = reranker
+        pipeline.settings.rerank_candidates = 15
+        pipeline.settings.demo_mode = True
+        list(pipeline.chat("hello"))
+        pipeline.retriever.vector_store.similarity_search_with_score.assert_called_once_with(
+            "hello", k=15
+        )
+
+    def test_no_reranker_uses_top_k(self, pipeline):
+        pipeline.retriever.vector_store.index.ntotal = 10
+        pipeline.retriever.vector_store.similarity_search_with_score.return_value = []
+        pipeline.reranker = None
+        pipeline.settings.demo_mode = True
+        list(pipeline.chat("hello"))
+        pipeline.retriever.vector_store.similarity_search_with_score.assert_called_once_with(
+            "hello", k=pipeline.settings.top_k
+        )

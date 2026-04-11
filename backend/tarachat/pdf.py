@@ -2,6 +2,7 @@
 
 import io
 import logging
+import re
 from pathlib import Path
 
 import fitz
@@ -26,11 +27,54 @@ def validate(pdf_bytes: bytes) -> bool:
         return True
 
 
-def extract_text(pdf_bytes: bytes) -> tuple[str, dict]:
+def _extract_body_text(page: fitz.Page, margin: float) -> str:
+    """Extract text from the body of a page, excluding header/footer margins.
+
+    Blocks whose vertical centre falls within *margin* of the top or bottom
+    edge are treated as running headers/footers and dropped.  Remaining blocks
+    are sorted top-to-bottom, left-to-right (reading order for single-column
+    documents).
+    """
+    page_height = page.rect.height
+    top_cutoff = page_height * margin
+    bottom_cutoff = page_height * (1 - margin)
+
+    body_blocks = []
+    for block in sorted(page.get_text("blocks"), key=lambda b: (b[1], b[0])):
+        x0, y0, x1, y1, text, _block_no, block_type = block
+        if block_type != 0:  # skip image blocks
+            continue
+        centre_y = (y0 + y1) / 2
+        if centre_y < top_cutoff or centre_y > bottom_cutoff:
+            continue
+        stripped = text.strip()
+        if stripped:
+            body_blocks.append(stripped)
+
+    return "\n".join(body_blocks)
+
+
+def _clean_text(text: str) -> str:
+    """Clean raw extracted text.
+
+    - Rejoins words broken by soft hyphenation at line-breaks.
+    - Collapses runs of spaces and tabs to a single space.
+    - Reduces three or more consecutive newlines to two.
+    """
+    text = re.sub(r"(\w)-\n(\w)", r"\1\2", text)  # soft-hyphenation
+    text = re.sub(r"[ \t]+", " ", text)             # horizontal whitespace
+    text = re.sub(r"\n{3,}", "\n\n", text)           # blank-line runs
+    return text.strip()
+
+
+def extract_text(pdf_bytes: bytes, *, margin: float = 0.05) -> tuple[str, dict]:
     """Extract text and metadata from PDF bytes.
 
     Args:
         pdf_bytes: PDF file content as bytes.
+        margin: Fraction of page height to treat as header/footer zone on each
+            edge (default 5%).  Blocks whose vertical centre falls within this
+            zone are dropped before chunking.
 
     Returns:
         Tuple of (extracted_text, metadata).
@@ -56,8 +100,9 @@ def extract_text(pdf_bytes: bytes) -> tuple[str, dict]:
     text_content: list[str] = []
     for page_num, page in enumerate(doc, start=1):
         try:
-            page_text = page.get_text()
-            if page_text and page_text.strip():
+            page_text = _extract_body_text(page, margin)
+            page_text = _clean_text(page_text)
+            if page_text:
                 text_content.append(f"[Page {page_num}]\n{page_text}")
         except Exception as e:
             logger.warning("Failed to extract text from page %d: %s", page_num, e)

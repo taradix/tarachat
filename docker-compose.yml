@@ -11,11 +11,16 @@ services:
       stack: 67108864
     runtime: nvidia
     environment:
+      MODEL_NAME: ${MODEL_NAME:-Qwen/Qwen2.5-3B-Instruct}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-OrdalieTech/Solon-embeddings-large-0.1}
       NVIDIA_VISIBLE_DEVICES: all
       CHUNK_SIZE: ${CHUNK_SIZE:-512}
       CHUNK_OVERLAP: ${CHUNK_OVERLAP:-50}
+      HF_TOKEN: ${HF_TOKEN:-}
       MAX_TOKENS: ${MAX_TOKENS:-512}
       TOP_K: ${TOP_K:-5}
+      RERANKER_MODEL: ${RERANKER_MODEL:-}
+      RERANK_CANDIDATES: ${RERANK_CANDIDATES:-20}
     networks:
       default:
         aliases:

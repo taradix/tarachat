@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     conversation_history_size: int = 6
     similarity_threshold: float | None = None  # Max L2 distance; None = no filtering (use logs to calibrate)
 
+    # Reranking Configuration
+    reranker_model: str | None = None  # None = disabled; e.g. "antoinelouis/crossencoder-camembert-base-mmarcoFR"
+    rerank_candidates: int = 20  # candidates to retrieve before reranking (must be >= top_k)
+
     # Performance Configuration
     demo_mode: bool = False  # Set to True for fast responses without LLM (testing/development)
     max_tokens: int = 512
