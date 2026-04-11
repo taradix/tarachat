@@ -220,8 +220,9 @@ class FakeDownloaderWithUrls(FakeDownloader):
         self._payload = html_payload
 
     async def fetch_urls(self, session, url, **_kwargs):
-        from bs4 import BeautifulSoup
         from pathlib import Path
+
+        from bs4 import BeautifulSoup
         soup = BeautifulSoup(self._payload["contenu"], "html.parser")
         results = []
         for a in soup.find_all("a"):

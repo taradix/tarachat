@@ -157,7 +157,7 @@ def _rrf_merge(
     """
     scores: dict[int, float] = {}
     docs: dict[int, Document] = {}
-    for ranked, weight in zip(ranked_lists, weights):
+    for ranked, weight in zip(ranked_lists, weights, strict=True):
         for rank, doc in enumerate(ranked, start=1):
             key = hash(doc.page_content)
             scores[key] = scores.get(key, 0.0) + weight / (rrf_k + rank)
@@ -184,7 +184,7 @@ class Reranker:
             return docs
         pairs = [(query, doc.page_content) for doc in docs]
         scores = self.model.predict(pairs)
-        ranked = sorted(zip(docs, scores), key=lambda x: x[1], reverse=True)
+        ranked = sorted(zip(docs, scores, strict=True), key=lambda x: x[1], reverse=True)
         return [doc for doc, _ in ranked[:top_k]]
 
 

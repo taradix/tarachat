@@ -41,7 +41,7 @@ def _extract_body_text(page: fitz.Page, margin: float) -> str:
 
     body_blocks = []
     for block in sorted(page.get_text("blocks"), key=lambda b: (b[1], b[0])):
-        x0, y0, x1, y1, text, _block_no, block_type = block
+        _x0, y0, _x1, y1, text, _block_no, block_type = block
         if block_type != 0:  # skip image blocks
             continue
         centre_y = (y0 + y1) / 2

@@ -15,6 +15,7 @@ from hamcrest import (
     is_,
     matches_regexp,
 )
+
 from tarachat.logger import (
     JsonFormatter,
     LoggerFormatter,

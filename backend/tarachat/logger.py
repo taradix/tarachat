@@ -67,7 +67,8 @@ DEFAULT_LEVEL = logging.INFO
 class LoggerFormatter(logging.Formatter):
     """Logger formatter with sensible defaults."""
 
-    converter = lambda _, t: datetime.fromtimestamp(t, timezone.utc)
+    def converter(self, t):  # type: ignore[override]
+        return datetime.fromtimestamp(t, timezone.utc)
 
     def __init__(self, fmt=None, datefmt=None):
         """Initialize a formatter with default fmt and datefmt."""
