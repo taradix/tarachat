@@ -1,6 +1,5 @@
 """Testing fixtures."""
 
-import json
 import logging
 
 import pytest
@@ -32,10 +31,8 @@ class FakeRAGSystem:
         return object()
 
     def chat(self, message: str, conversation_history: list | None = None):
-        answer = f"Echo: {message}"
-        yield f'data: {json.dumps({"type": "token", "content": answer})}\n\n'
-        yield f'data: {json.dumps({"type": "sources", "sources": ["doc1"]})}\n\n'
-        yield "data: [DONE]\n\n"
+        yield {"type": "token", "content": f"Echo: {message}"}
+        yield {"type": "sources", "sources": ["doc1"]}
 
 
 assert isinstance(FakeRAGSystem(), RAGProtocol), "FakeRAGSystem must satisfy RAGProtocol"

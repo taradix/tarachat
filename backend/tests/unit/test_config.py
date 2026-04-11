@@ -8,7 +8,7 @@ _SETTINGS_KEYS = [
     "HOST", "PORT", "CORS_ORIGINS",
     "MODEL_NAME", "EMBEDDING_MODEL",
     "CHUNK_SIZE", "CHUNK_OVERLAP", "TOP_K", "SIMILARITY_THRESHOLD",
-    "DEMO_MODE", "MAX_TOKENS",
+    "DEMO_MODE", "MAX_TOKENS", "CONVERSATION_HISTORY_SIZE",
     "DATA_PATH", "VECTOR_STORE_PATH",
 ]
 
@@ -32,6 +32,7 @@ class TestSettings:
         assert s.top_k == 3
         assert s.similarity_threshold is None
         assert s.max_tokens == 128
+        assert s.conversation_history_size == 6
 
     def test_cors_origins_default(self, isolated_settings):
         assert isolated_settings.cors_origins == "http://localhost:5173"

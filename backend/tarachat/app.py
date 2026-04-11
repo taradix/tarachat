@@ -1,3 +1,4 @@
+import json
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -72,11 +73,12 @@ async def chat(request: ChatRequest, rag: RAGProtocol = Depends(get_rag_system))
 
     def event_generator():
         try:
-            yield from rag.chat(request.message, history)
+            for event in rag.chat(request.message, history):
+                yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             logger.error(f"Error during streaming: {e}", exc_info=True)
             yield 'data: {"type": "error", "content": "An internal error occurred."}\n\n'
-            yield "data: [DONE]\n\n"
+        yield "data: [DONE]\n\n"
 
     return StreamingResponse(
         event_generator(),

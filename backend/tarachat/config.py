@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 50
     top_k: int = 3
+    conversation_history_size: int = 6
     similarity_threshold: float | None = None  # Max L2 distance; None = no filtering (use logs to calibrate)
 
     # Performance Configuration

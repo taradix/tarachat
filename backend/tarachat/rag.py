@@ -1,5 +1,4 @@
 
-import json
 import logging
 import re
 from collections.abc import Generator
@@ -72,7 +71,7 @@ class RAGProtocol(Protocol):
 
     def chat(
         self, message: str, conversation_history: list[dict] | None = None,
-    ) -> Generator[str, None, None]: ...
+    ) -> Generator[dict, None, None]: ...
 
     def create_empty_vector_store(self) -> Any: ...
 
@@ -101,13 +100,9 @@ def _load_vector_store(
     """Load an existing vector store or create a new empty one."""
     if path.exists() and (path / "index.faiss").exists():
         logger.info("Loading existing vector store...")
-        try:
-            return FAISS.load_local(
-                str(path), embeddings, allow_dangerous_deserialization=True,
-            )
-        except TypeError:
-            logger.info("Using older FAISS.load_local signature...")
-            return FAISS.load_local(str(path), embeddings)
+        return FAISS.load_local(
+            str(path), embeddings, allow_dangerous_deserialization=True,
+        )
 
     logger.info("Creating new empty vector store...")
     vector_store = _create_empty_vector_store(embeddings)
@@ -155,6 +150,7 @@ class RAGSystem:
     vector_store: Any
     tokenizer: Any
     model: Any
+    text_splitter: Any
 
     @classmethod
     def create(cls, settings: Settings, device: str) -> "RAGSystem":
@@ -183,6 +179,12 @@ class RAGSystem:
         if device == "cpu":
             model = model.to(device)
 
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
+            length_function=len,
+        )
+
         logger.info("RAG system initialized successfully")
         return cls(
             settings=settings,
@@ -191,6 +193,7 @@ class RAGSystem:
             vector_store=vector_store,
             tokenizer=tokenizer,
             model=model,
+            text_splitter=text_splitter,
         )
 
     def create_empty_vector_store(self) -> FAISS:
@@ -204,22 +207,16 @@ class RAGSystem:
 
         logger.info(f"Adding {len(texts)} documents to vector store...")
 
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.settings.chunk_size,
-            chunk_overlap=self.settings.chunk_overlap,
-            length_function=len,
-        )
-
         documents = []
         for i, text in enumerate(texts):
             base_metadata = metadatas[i] if metadatas and i < len(metadatas) else {}
 
             # Split by page first so every chunk keeps its page number
             for page_num, page_text in _split_by_pages(text):
-                chunks = text_splitter.split_text(page_text)
+                chunks = self.text_splitter.split_text(page_text)
                 for j, chunk in enumerate(chunks):
                     doc = Document(
-                        page_content=f"[Page {page_num}]\n{chunk}",
+                        page_content=chunk,
                         metadata={**base_metadata, "chunk": j, "page": page_num},
                     )
                     documents.append(doc)
@@ -246,7 +243,7 @@ class RAGSystem:
         threshold = self.settings.similarity_threshold
         filtered = []
         for doc, score in results:
-            logger.warning(f"Doc score={score:.4f} threshold={threshold} file={doc.metadata.get('filename','?')} page={doc.metadata.get('page','?')}")
+            logger.debug(f"Doc score={score:.4f} threshold={threshold} file={doc.metadata.get('filename','?')} page={doc.metadata.get('page','?')}")
             if threshold is None or score <= threshold:
                 filtered.append(doc)
         logger.info(f"Retrieved {len(results)} docs, {len(filtered)} within threshold {threshold}")
@@ -262,8 +259,7 @@ class RAGSystem:
         context_parts = []
         for doc in context_docs:
             ref = _source_ref(doc)
-            text = re.sub(r"\[Page \d+\]\n?", "", doc.page_content).strip()
-            context_parts.append(f"[{ref}]: {text}")
+            context_parts.append(f"[{ref}]: {doc.page_content}")
         context = "\n\n".join(context_parts)
 
         system = (
@@ -277,7 +273,8 @@ class RAGSystem:
 
         messages = [{"role": "system", "content": system}]
         if conversation_history:
-            for msg in conversation_history[-6:]:
+            history_size = self.settings.conversation_history_size
+            for msg in conversation_history[-history_size:]:
                 messages.append({"role": msg.role, "content": msg.content})
         messages.append({"role": "user", "content": user_content})
 
@@ -291,8 +288,7 @@ class RAGSystem:
             parts = []
             for doc in docs[:2]:
                 ref = _source_ref(doc)
-                text = re.sub(r"\[Page \d+\]\n?", "", doc.page_content).strip()
-                snippet = text[:300].strip()
+                snippet = doc.page_content[:300].strip()
                 parts.append(f"{snippet} [{ref}]")
             return "Voici ce que j'ai trouvé dans les documents:\n\n" + "\n\n".join(parts)
         return "Désolé, je n'ai pas trouvé d'informations pertinentes dans la base de connaissances pour répondre à votre question."
@@ -311,8 +307,7 @@ class RAGSystem:
             if page is None:
                 m = re.search(r"\[Page (\d+)\]", doc.page_content)
                 page = int(m.group(1)) if m else 1
-            text = re.sub(r"\[Page \d+\]\n?", "", doc.page_content).strip()
-            snippet = text[:120].strip()
+            snippet = doc.page_content[:120].strip()
             key = (filename, page)
             if key not in seen:
                 seen[key] = []
@@ -325,7 +320,12 @@ class RAGSystem:
         ]
 
     def _tokenize_prompt(self, prompt: str) -> dict:
-        inputs = self.tokenizer(prompt, return_tensors="pt")
+        inputs = self.tokenizer(
+            prompt,
+            return_tensors="pt",
+            truncation=True,
+            max_length=self.tokenizer.model_max_length,
+        )
         return {k: v.to(self.device) for k, v in inputs.items()}
 
     def _generation_kwargs(self, inputs: dict, max_length: int) -> dict:
@@ -380,31 +380,28 @@ class RAGSystem:
 
         thread.join()
 
-    def chat(self, message: str, conversation_history: list[dict] | None = None) -> Generator[str, None, None]:
-        """Process a chat message with RAG, yielding SSE events as tokens stream."""
+    def chat(self, message: str, conversation_history: list[dict] | None = None) -> Generator[dict, None, None]:
+        """Process a chat message with RAG, yielding event dicts as tokens stream."""
         docs = self.retrieve_documents(message)
         sources = self._extract_sources(docs)
 
         if self.settings.demo_mode:
             logger.info("Using demo mode (fast RAG-only responses)")
             response = self._build_demo_response(docs)
-            yield f"data: {json.dumps({'type': 'token', 'content': response})}\n\n"
-            yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
-            yield "data: [DONE]\n\n"
+            yield {"type": "token", "content": response}
+            yield {"type": "sources", "sources": sources}
             return
 
         if not docs:
             logger.info("No relevant documents found; skipping LLM")
             no_info = "Je n'ai pas trouvé d'informations pertinentes dans les documents pour répondre à cette question."
-            yield f"data: {json.dumps({'type': 'token', 'content': no_info})}\n\n"
-            yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
-            yield "data: [DONE]\n\n"
+            yield {"type": "token", "content": no_info}
+            yield {"type": "sources", "sources": []}
             return
 
         # Normal mode: stream tokens
         logger.info("Using full LLM mode with streaming")
         for token in self._stream_tokens(message, docs, conversation_history):
-            yield f"data: {json.dumps({'type': 'token', 'content': token})}\n\n"
+            yield {"type": "token", "content": token}
 
-        yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
-        yield "data: [DONE]\n\n"
+        yield {"type": "sources", "sources": sources}

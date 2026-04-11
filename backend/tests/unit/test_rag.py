@@ -1,6 +1,5 @@
 """Unit tests for RAGSystem pure methods (no ML models required)."""
 
-import json
 from unittest.mock import MagicMock
 
 import pytest
@@ -24,6 +23,7 @@ def rag(tmp_path):
         vector_store=MagicMock(),
         tokenizer=tokenizer,
         model=MagicMock(),
+        text_splitter=MagicMock(**{"split_text.side_effect": lambda text: [text]}),
     )
 
 
@@ -205,7 +205,6 @@ class TestAddDocuments:
 
     def test_adds_and_saves(self, rag, tmp_path):
         rag.settings.vector_store_path = str(tmp_path / "vs")
-        rag.settings.chunk_size = 5000  # large enough to avoid splitting
         rag.add_documents(["hello world"], [{"source": "test"}])
         rag.vector_store.add_documents.assert_called_once()
         docs = rag.vector_store.add_documents.call_args[0][0]
@@ -213,46 +212,41 @@ class TestAddDocuments:
         rag.vector_store.save_local.assert_called_once()
 
     def test_splits_long_text(self, rag, tmp_path):
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
         rag.settings.vector_store_path = str(tmp_path / "vs")
-        rag.settings.chunk_size = 50
-        rag.settings.chunk_overlap = 0
+        rag.text_splitter = RecursiveCharacterTextSplitter(chunk_size=50, chunk_overlap=0)
         long_text = "word " * 100  # 500 chars
         rag.add_documents([long_text])
         docs = rag.vector_store.add_documents.call_args[0][0]
         assert len(docs) > 1  # Should be chunked
 
-    def test_all_chunks_have_page_marker(self, rag, tmp_path):
-        """Every chunk should have a [Page N] marker, even after splitting."""
+    def test_all_chunks_have_page_metadata(self, rag, tmp_path):
+        """Every chunk should have page metadata set, with no [Page N] in content."""
         rag.settings.vector_store_path = str(tmp_path / "vs")
-        rag.settings.chunk_size = 50
-        rag.settings.chunk_overlap = 0
         text = "[Page 5]\n" + "word " * 100
+        rag.text_splitter = MagicMock(**{"split_text.side_effect": lambda t: [t[:50], t[50:]]})
         rag.add_documents([text], [{"filename": "test.pdf"}])
         docs = rag.vector_store.add_documents.call_args[0][0]
         assert len(docs) > 1
         for doc in docs:
-            assert "[Page 5]" in doc.page_content
             assert doc.metadata["page"] == 5
+            assert "[Page 5]" not in doc.page_content
 
 
 class TestChat:
-    def test_demo_mode_yields_sse(self, rag):
+    def test_demo_mode_yields_events(self, rag):
         rag.vector_store.index.ntotal = 1
         rag.vector_store.similarity_search_with_score.return_value = [
             (Document(page_content="Doc content"), 0.5),
         ]
         rag.settings.demo_mode = True
         events = list(rag.chat("hello"))
-        assert len(events) == 3
-        token_event = json.loads(events[0].removeprefix("data: ").strip())
-        assert token_event["type"] == "token"
-        sources_event = json.loads(events[1].removeprefix("data: ").strip())
-        assert sources_event["type"] == "sources"
-        assert events[2].strip() == "data: [DONE]"
+        assert len(events) == 2
+        assert events[0]["type"] == "token"
+        assert events[1]["type"] == "sources"
 
     def test_demo_mode_no_docs(self, rag):
         rag.settings.demo_mode = True
         rag.vector_store.index.ntotal = 0
         events = list(rag.chat("hello"))
-        token_event = json.loads(events[0].removeprefix("data: ").strip())
-        assert "Désolé" in token_event["content"]
+        assert "Désolé" in events[0]["content"]
