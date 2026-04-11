@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     chunk_size: int = 512
     chunk_overlap: int = 50
     top_k: int = 3
+    similarity_threshold: float | None = None  # Max L2 distance; None = no filtering (use logs to calibrate)
 
     # Performance Configuration
     demo_mode: bool = False  # Set to True for fast responses without LLM (testing/development)
@@ -28,9 +29,11 @@ class Settings(BaseSettings):
     data_path: str = "./data"
     vector_store_path: str = "./vector_store"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "case_sensitive": False,
+        "extra": "ignore",
+    }
 
 
 @lru_cache

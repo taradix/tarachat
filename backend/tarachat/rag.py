@@ -235,15 +235,22 @@ class RAGSystem:
         logger.info(f"Added {len(documents)} chunks to vector store")
 
     def retrieve_documents(self, query: str, k: int | None = None) -> list[Document]:
-        """Retrieve relevant documents for a query."""
+        """Retrieve relevant documents for a query, filtered by similarity threshold."""
         if k is None:
             k = self.settings.top_k
 
         if self.vector_store.index.ntotal == 0:
             return []
 
-        results = self.vector_store.similarity_search(query, k=k)
-        return results
+        results = self.vector_store.similarity_search_with_score(query, k=k)
+        threshold = self.settings.similarity_threshold
+        filtered = []
+        for doc, score in results:
+            logger.warning(f"Doc score={score:.4f} threshold={threshold} file={doc.metadata.get('filename','?')} page={doc.metadata.get('page','?')}")
+            if threshold is None or score <= threshold:
+                filtered.append(doc)
+        logger.info(f"Retrieved {len(results)} docs, {len(filtered)} within threshold {threshold}")
+        return filtered
 
     def _build_prompt(
         self,
@@ -261,7 +268,9 @@ class RAGSystem:
 
         system = (
             "Tu es un assistant qui répond aux questions sur les règlements municipaux. "
-            "Réponds uniquement à partir du contexte fourni. "
+            "Réponds UNIQUEMENT à partir des extraits fournis dans le contexte. "
+            "N'utilise jamais tes propres connaissances générales. "
+            "Si le contexte ne contient pas la réponse, dis-le explicitement. "
             "Cite tes sources sous la forme [fichier.pdf#page=N]."
         )
         user_content = f"Contexte :\n{context}\n\nQuestion : {query}"
@@ -381,6 +390,14 @@ class RAGSystem:
             response = self._build_demo_response(docs)
             yield f"data: {json.dumps({'type': 'token', 'content': response})}\n\n"
             yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
+        if not docs:
+            logger.info("No relevant documents found; skipping LLM")
+            no_info = "Je n'ai pas trouvé d'informations pertinentes dans les documents pour répondre à cette question."
+            yield f"data: {json.dumps({'type': 'token', 'content': no_info})}\n\n"
+            yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
             yield "data: [DONE]\n\n"
             return
 

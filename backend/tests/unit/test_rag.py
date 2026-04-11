@@ -173,16 +173,29 @@ class TestRetrieveDocuments:
 
     def test_uses_settings_top_k(self, rag):
         rag.vector_store.index.ntotal = 5
-        rag.vector_store.similarity_search.return_value = [Document(page_content="hit")]
+        doc = Document(page_content="hit")
+        rag.vector_store.similarity_search_with_score.return_value = [(doc, 0.5)]
         result = rag.retrieve_documents("query")
-        rag.vector_store.similarity_search.assert_called_once_with("query", k=rag.settings.top_k)
+        rag.vector_store.similarity_search_with_score.assert_called_once_with("query", k=rag.settings.top_k)
         assert len(result) == 1
 
     def test_custom_k(self, rag):
         rag.vector_store.index.ntotal = 5
-        rag.vector_store.similarity_search.return_value = []
+        rag.vector_store.similarity_search_with_score.return_value = []
         rag.retrieve_documents("query", k=7)
-        rag.vector_store.similarity_search.assert_called_once_with("query", k=7)
+        rag.vector_store.similarity_search_with_score.assert_called_once_with("query", k=7)
+
+    def test_filters_above_threshold(self, rag):
+        rag.vector_store.index.ntotal = 5
+        rag.settings.similarity_threshold = 0.8
+        doc_close = Document(page_content="close")
+        doc_far = Document(page_content="far")
+        rag.vector_store.similarity_search_with_score.return_value = [
+            (doc_close, 0.5),
+            (doc_far, 1.2),
+        ]
+        result = rag.retrieve_documents("query")
+        assert result == [doc_close]
 
 
 class TestAddDocuments:
@@ -225,8 +238,8 @@ class TestAddDocuments:
 class TestChat:
     def test_demo_mode_yields_sse(self, rag):
         rag.vector_store.index.ntotal = 1
-        rag.vector_store.similarity_search.return_value = [
-            Document(page_content="Doc content"),
+        rag.vector_store.similarity_search_with_score.return_value = [
+            (Document(page_content="Doc content"), 0.5),
         ]
         rag.settings.demo_mode = True
         events = list(rag.chat("hello"))
