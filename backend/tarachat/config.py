@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
 
     # Model Configuration
-    model_name: str = "Qwen/Qwen2.5-3B-Instruct"
+    model_name: str = "Qwen/Qwen2.5-0.5B-Instruct"
     embedding_model: str = "OrdalieTech/Solon-embeddings-large-0.1"
 
     # RAG Configuration
