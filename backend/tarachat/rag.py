@@ -343,6 +343,9 @@ class LLMGenerator:
             if safe > 0:
                 yield buffer[:safe]
                 buffer = buffer[safe:]
+        else:
+            if buffer.strip():
+                yield buffer.strip()
 
         thread.join()
 
@@ -361,11 +364,13 @@ class LLMGenerator:
         )
 
     def _tokenize(self, prompt: str) -> dict:
+        raw_max = self.tokenizer.model_max_length
+        max_length = raw_max if raw_max < 1_000_000 else 4096
         inputs = self.tokenizer(
             prompt,
             return_tensors="pt",
             truncation=True,
-            max_length=self.tokenizer.model_max_length,
+            max_length=max_length,
         )
         return {k: v.to(self.device) for k, v in inputs.items()}
 
@@ -393,39 +398,30 @@ class RAGPipeline:
     text_splitter: Any
     embeddings: Any
     retriever: Retriever
-    prompt_builder: PromptBuilder
-    generator: LLMGenerator
+    prompt_builder: Any = field(default=None)  # None when created for ingest-only use
+    generator: Any = field(default=None)        # None when created for ingest-only use
     reranker: Any = field(default=None)
 
     @classmethod
-    def create(cls, settings: Settings, device: str) -> "RAGPipeline":
-        """Create a fully initialized RAG pipeline."""
-        logger.info(f"Using device: {device}")
-        logger.info("Initializing RAG pipeline...")
-
+    def _load_embeddings_and_retriever(
+        cls, settings: Settings, device: str
+    ) -> tuple[Any, Any, Any, Any]:
+        """Shared setup: embeddings, vector store, text splitter, BM25 retriever."""
         logger.info(f"Loading embedding model: {settings.embedding_model}")
         embeddings = HuggingFaceEmbeddings(
             model_name=settings.embedding_model,
-            model_kwargs={"device": device},
+            model_kwargs={
+                "device": device,
+                "model_kwargs": {"torch_dtype": torch.float16 if device == "cuda" else torch.float32},
+            },
         )
 
         vector_store = _load_vector_store(Path(settings.vector_store_path), embeddings)
 
-        logger.info(f"Loading language model: {settings.model_name}")
-        tokenizer = AutoTokenizer.from_pretrained(settings.model_name)
-        model = AutoModelForCausalLM.from_pretrained(
-            settings.model_name,
-            torch_dtype=torch.float16 if device == "cuda" else torch.float32,
-            device_map="auto" if device == "cuda" else None,
-            low_cpu_mem_usage=True,
-        )
-        if device == "cpu":
-            model = model.to(device)
-
         # Token-aware chunking: use the embedding model's tokenizer as the
         # length function so chunk boundaries respect the model's context window.
-        token_encoder = embeddings.client.tokenizer
-        max_seq_len = embeddings.client.max_seq_length
+        token_encoder = embeddings._client.tokenizer
+        max_seq_len = embeddings._client.max_seq_length
         chunk_size = settings.chunk_size
         if chunk_size > max_seq_len:
             logger.warning(
@@ -451,22 +447,47 @@ class RAGPipeline:
                 bm25_retriever = BM25Retriever.from_documents(docs)
                 bm25_retriever.k = settings.top_k
 
+        retriever = Retriever(
+            settings=settings,
+            vector_store=vector_store,
+            bm25_retriever=bm25_retriever,
+        )
+        return embeddings, text_splitter, retriever
+
+    @classmethod
+    def create(cls, settings: Settings, device: str) -> "RAGPipeline":
+        """Create a fully initialized RAG pipeline."""
+        logger.info(f"Using device: {device}")
+        logger.info("Initializing RAG pipeline...")
+
+        embeddings, text_splitter, retriever = cls._load_embeddings_and_retriever(settings, device)
+
+        logger.info(f"Loading language model: {settings.model_name}")
+        tokenizer = AutoTokenizer.from_pretrained(settings.model_name)
+        model = AutoModelForCausalLM.from_pretrained(
+            settings.model_name,
+            dtype=torch.float16 if device == "cuda" else torch.float32,
+            device_map="auto" if device == "cuda" else None,
+            low_cpu_mem_usage=True,
+        )
+        if device == "cpu":
+            model = model.to(device)
+
         reranker = None
         if settings.reranker_model:
             from sentence_transformers import CrossEncoder
             logger.info(f"Loading reranker model: {settings.reranker_model}")
-            reranker = Reranker(model=CrossEncoder(settings.reranker_model))
+            reranker = Reranker(model=CrossEncoder(
+                settings.reranker_model,
+                device="cpu",
+            ))
 
         logger.info("RAG pipeline initialized successfully")
         return cls(
             settings=settings,
             text_splitter=text_splitter,
             embeddings=embeddings,
-            retriever=Retriever(
-                settings=settings,
-                vector_store=vector_store,
-                bm25_retriever=bm25_retriever,
-            ),
+            retriever=retriever,
             prompt_builder=PromptBuilder(settings=settings, tokenizer=tokenizer),
             generator=LLMGenerator(
                 settings=settings,
@@ -475,6 +496,26 @@ class RAGPipeline:
                 device=device,
             ),
             reranker=reranker,
+        )
+
+    @classmethod
+    def create_for_ingest(cls, settings: Settings, device: str) -> "RAGPipeline":
+        """Create a pipeline with only the embedding model loaded (no LLM).
+
+        Use this for document ingestion to avoid loading the language model
+        into memory when only the vector store needs to be updated.
+        """
+        logger.info(f"Using device: {device}")
+        logger.info("Initializing RAG pipeline (ingest mode — no LLM)...")
+
+        embeddings, text_splitter, retriever = cls._load_embeddings_and_retriever(settings, device)
+
+        logger.info("RAG pipeline (ingest mode) initialized successfully")
+        return cls(
+            settings=settings,
+            text_splitter=text_splitter,
+            embeddings=embeddings,
+            retriever=retriever,
         )
 
     def add_documents(self, texts: list[str], metadatas: list[dict] | None = None) -> None:

@@ -332,7 +332,7 @@ def main():
 
     settings = get_settings()
     logger.info("Initializing RAG system...")
-    rag = RAGSystem.create(settings=settings, device=_detect_device())
+    rag = RAGSystem.create_for_ingest(settings=settings, device=_detect_device())
 
     manager = DocumentManager(
         rag, pdf.extract_text,
