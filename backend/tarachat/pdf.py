@@ -3,6 +3,7 @@
 import io
 import logging
 import re
+import unicodedata
 from pathlib import Path
 
 import fitz
@@ -121,6 +122,47 @@ def extract_text(pdf_bytes: bytes, *, margin: float = 0.05) -> tuple[str, dict]:
     return full_text, metadata
 
 
+def _normalize_search_phrase(text: str) -> str:
+    """Normalize a phrase for PDF text search.
+
+    Applies NFC Unicode normalisation and replaces non-breaking spaces so that
+    the phrase matches the text as PyMuPDF extracts it from the PDF.
+    """
+    text = unicodedata.normalize("NFC", text)
+    text = text.replace("\u00a0", " ")   # non-breaking space → regular space
+    text = text.replace("\u2019", "'")   # right single quotation mark → apostrophe
+    text = re.sub(r"[ \t]+", " ", text)
+    return text.strip()
+
+
+def _highlight_page(page: fitz.Page, snippet: str) -> None:
+    """Highlight a snippet on a page using a sliding-window phrase search.
+
+    The snippet comes from cleaned/chunked text which may differ from the raw
+    PDF text (rejoined soft hyphens, collapsed whitespace, Unicode variants).
+    A sliding window of decreasing width is tried across the full snippet so
+    that a match anywhere in the snippet succeeds even when the prefix fails.
+
+    >>> import fitz
+    >>> page = fitz.open()[0] if False else None  # doctest: +SKIP
+    """
+    snippet = _normalize_search_phrase(snippet)
+    words = snippet.split()
+
+    for window in (len(words), 10, 7, 5, 3):
+        if window > len(words):
+            continue
+        step = max(1, window // 2)
+        for start in range(0, len(words) - window + 1, step):
+            phrase = " ".join(words[start : start + window])
+            if len(phrase) < 8:  # too short to be a reliable anchor
+                continue
+            areas = page.search_for(phrase, quads=True, flags=fitz.TEXT_DEHYPHENATE)
+            if areas:
+                page.add_highlight_annot(areas).update()
+                return
+
+
 def serve(
     pdf_path: Path,
     *,
@@ -151,10 +193,7 @@ def serve(
     if highlights:
         for pdf_page in doc:
             for text in highlights:
-                areas = pdf_page.search_for(text)
-                if areas:
-                    annot = pdf_page.add_highlight_annot(areas)
-                    annot.update()
+                _highlight_page(pdf_page, text)
 
     buf = io.BytesIO()
     doc.save(buf)
