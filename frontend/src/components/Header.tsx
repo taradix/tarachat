@@ -4,8 +4,7 @@ function Header() {
   return (
     <header className="header">
       <div className="header-content">
-        <h1 className="title">Taram Chat</h1>
-        <p className="subtitle">Règlements - Municipalité de Notre-Dame-du-Laus</p>
+        <h1 className="title">Règlements - Municipalité de Notre-Dame-du-Laus</h1>
       </div>
     </header>
   );

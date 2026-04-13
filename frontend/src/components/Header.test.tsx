@@ -5,11 +5,6 @@ import Header from './Header'
 describe('Header', () => {
   it('renders the title', () => {
     render(<Header />)
-    expect(screen.getByText('Taram Chat')).toBeInTheDocument()
-  })
-
-  it('renders the subtitle', () => {
-    render(<Header />)
     expect(
       screen.getByText('Règlements - Municipalité de Notre-Dame-du-Laus'),
     ).toBeInTheDocument()

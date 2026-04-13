@@ -9,7 +9,7 @@ vi.mock('./api', () => ({
 describe('App', () => {
   it('renders header and chat components', () => {
     render(<App />)
-    expect(screen.getByText('Taram Chat')).toBeInTheDocument()
+    expect(screen.getByText('Règlements - Municipalité de Notre-Dame-du-Laus')).toBeInTheDocument()
     expect(screen.getByText('Bienvenue sur TaraChat !')).toBeInTheDocument()
   })
 })
