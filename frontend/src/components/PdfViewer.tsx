@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Source } from '../types';
 import './PdfViewer.css';
 
@@ -20,16 +19,14 @@ function buildPdfUrl(source: Source): string {
 }
 
 function PdfViewer({ source, onClose }: PdfViewerProps) {
-  const { t } = useTranslation();
-
   return (
     <div className="pdf-overlay" onClick={onClose}>
       <div className="pdf-modal" onClick={(e) => e.stopPropagation()}>
         <div className="pdf-header">
           <span className="pdf-title">
-            {source.filename} — {t('pdf.page', { page: source.page })}
+            {source.filename} — p. {source.page}
           </span>
-          <button className="pdf-close" onClick={onClose} aria-label={t('pdf.close')}>
+          <button className="pdf-close" onClick={onClose} aria-label="Fermer">
             ✕
           </button>
         </div>
@@ -48,7 +45,6 @@ interface SourceLinkProps {
 }
 
 function SourceLink({ source }: SourceLinkProps) {
-  const { t } = useTranslation();
   const [showPdf, setShowPdf] = useState(false);
 
   return (
@@ -58,7 +54,7 @@ function SourceLink({ source }: SourceLinkProps) {
         onClick={() => setShowPdf(true)}
       >
         <span className="source-filename">{source.filename}</span>
-        <span className="source-page">{t('pdf.page', { page: source.page })}</span>
+        <span className="source-page">p. {source.page}</span>
       </button>
       {showPdf && <PdfViewer source={source} onClose={() => setShowPdf(false)} />}
     </>

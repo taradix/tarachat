@@ -6,9 +6,9 @@ import { Message } from '../types'
 describe('MessageList', () => {
   it('shows welcome message when empty', () => {
     render(<MessageList messages={[]} isLoading={false} />)
-    expect(screen.getByText('Welcome to TaraChat!')).toBeInTheDocument()
+    expect(screen.getByText('Bienvenue sur TaraChat !')).toBeInTheDocument()
     expect(
-      screen.getByText('Start a conversation by typing a message below.'),
+      screen.getByText('Commencez une conversation en tapant un message ci-dessous.'),
     ).toBeInTheDocument()
   })
 

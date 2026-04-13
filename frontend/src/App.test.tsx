@@ -10,6 +10,6 @@ describe('App', () => {
   it('renders header and chat components', () => {
     render(<App />)
     expect(screen.getByText('Taram Chat')).toBeInTheDocument()
-    expect(screen.getByText('Welcome to TaraChat!')).toBeInTheDocument()
+    expect(screen.getByText('Bienvenue sur TaraChat !')).toBeInTheDocument()
   })
 })

@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import { Source } from '../types';
 import PdfViewer from './PdfViewer';
@@ -19,7 +18,6 @@ function parseCitation(ref: string): { filename: string; page: number } {
 }
 
 function CitationText({ content, sources }: CitationTextProps) {
-  const { t } = useTranslation();
   const [viewerSource, setViewerSource] = useState<Source | null>(null);
 
   // Assign a stable number to each unique citation ref
@@ -60,7 +58,7 @@ function CitationText({ content, sources }: CitationTextProps) {
               return (
                 <button
                   className="inline-citation"
-                  title={`${filename} — ${t('pdf.page', { page })}`}
+                  title={`${filename} — p. ${page}`}
                   onClick={() => handleClick(ref)}
                 >
                   {children}

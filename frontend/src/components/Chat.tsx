@@ -1,13 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { Message } from '../types';
 import { sendMessageStream } from '../api';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import './Chat.css';
 
+const ERROR_MESSAGE = "Désolé, une erreur s'est produite. Veuillez vous assurer que le serveur est en marche et réessayer.";
+
 function Chat() {
-  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -76,7 +76,7 @@ function Chat() {
               if (last.role === 'assistant' && last.content === '') {
                 updated[updated.length - 1] = {
                   ...last,
-                  content: t('chat.error'),
+                  content: ERROR_MESSAGE,
                 };
               }
               return updated;
@@ -95,7 +95,7 @@ function Chat() {
         if (last.role === 'assistant') {
           updated[updated.length - 1] = {
             ...last,
-            content: t('chat.error'),
+            content: ERROR_MESSAGE,
           };
         }
         return updated;

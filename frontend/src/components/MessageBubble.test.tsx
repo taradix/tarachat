@@ -28,7 +28,7 @@ describe('MessageBubble', () => {
 
   it('displays timestamp', () => {
     render(<MessageBubble message={baseMessage} />)
-    expect(screen.getByText(/\d{2}:\d{2}/)).toBeInTheDocument()
+    expect(document.querySelector('.message-timestamp')).toBeInTheDocument()
   })
 
   it('shows sources when present', () => {

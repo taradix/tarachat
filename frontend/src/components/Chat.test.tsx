@@ -15,7 +15,7 @@ describe('Chat', () => {
 
   it('shows empty state initially', () => {
     render(<Chat />)
-    expect(screen.getByText('Welcome to TaraChat!')).toBeInTheDocument()
+    expect(screen.getByText('Bienvenue sur TaraChat !')).toBeInTheDocument()
   })
 
   it('sends a message and displays streaming response', async () => {
@@ -32,7 +32,7 @@ describe('Chat', () => {
 
     render(<Chat />)
     await user.type(
-      screen.getByPlaceholderText(/Type your message/),
+      screen.getByPlaceholderText(/Tapez votre message/),
       'Hi{Enter}',
     )
 
@@ -56,13 +56,13 @@ describe('Chat', () => {
 
     render(<Chat />)
     await user.type(
-      screen.getByPlaceholderText(/Type your message/),
+      screen.getByPlaceholderText(/Tapez votre message/),
       'Hi{Enter}',
     )
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Sorry, I encountered an error/),
+        screen.getByText(/Désolé, une erreur s'est produite/),
       ).toBeInTheDocument()
     })
   })
@@ -77,13 +77,13 @@ describe('Chat', () => {
 
     render(<Chat />)
     await user.type(
-      screen.getByPlaceholderText(/Type your message/),
+      screen.getByPlaceholderText(/Tapez votre message/),
       'Hi{Enter}',
     )
 
     await waitFor(() => {
       expect(
-        screen.getByText(/Sorry, I encountered an error/),
+        screen.getByText(/Désolé, une erreur s'est produite/),
       ).toBeInTheDocument()
     })
   })
@@ -101,7 +101,7 @@ describe('Chat', () => {
     render(<Chat />)
 
     await user.type(
-      screen.getByPlaceholderText(/Type your message/),
+      screen.getByPlaceholderText(/Tapez votre message/),
       'First{Enter}',
     )
 
@@ -110,7 +110,7 @@ describe('Chat', () => {
     })
 
     await user.type(
-      screen.getByPlaceholderText(/Type your message/),
+      screen.getByPlaceholderText(/Tapez votre message/),
       'Second{Enter}',
     )
 

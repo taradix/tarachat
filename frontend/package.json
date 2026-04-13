@@ -12,11 +12,8 @@
     "coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "i18next": "^26.0.0",
-    "i18next-browser-languagedetector": "^8.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-i18next": "^17.0.0",
     "react-markdown": "^10.0.0"
   },
   "devDependencies": {

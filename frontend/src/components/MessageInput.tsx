@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
-import { useTranslation } from 'react-i18next';
 import './MessageInput.css';
 
 interface MessageInputProps {
@@ -8,7 +7,6 @@ interface MessageInputProps {
 }
 
 function MessageInput({ onSendMessage, disabled = false }: MessageInputProps) {
-  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -39,7 +37,7 @@ function MessageInput({ onSendMessage, disabled = false }: MessageInputProps) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder={t('chat.placeholder')}
+          placeholder="Tapez votre message... (Maj+Entrée pour un saut de ligne)"
           disabled={disabled}
           rows={1}
         />
@@ -48,7 +46,7 @@ function MessageInput({ onSendMessage, disabled = false }: MessageInputProps) {
           disabled={disabled || !input.trim()}
           className="send-button"
         >
-          {t('chat.send')}
+          Envoyer
         </button>
       </div>
     </div>

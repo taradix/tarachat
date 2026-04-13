@@ -1,4 +1,3 @@
-import { useTranslation } from 'react-i18next';
 import { Message } from '../types';
 import { SourceLink } from './PdfViewer';
 import CitationText from './CitationText';
@@ -9,8 +8,6 @@ interface MessageBubbleProps {
 }
 
 function MessageBubble({ message }: MessageBubbleProps) {
-  const { t, i18n } = useTranslation();
-
   return (
     <div className={`message-bubble ${message.role === 'user' ? 'user' : 'assistant'}`}>
       <div className="message-content">
@@ -20,7 +17,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
         {message.sources && message.sources.length > 0 && (
           <div className="message-sources">
             <details>
-              <summary>{t('chat.sources', { count: message.sources.length })}</summary>
+              <summary>Sources ({message.sources.length})</summary>
               <div className="sources-list">
                 {message.sources.map((source, index) => (
                   <SourceLink key={index} source={source} />
@@ -31,7 +28,7 @@ function MessageBubble({ message }: MessageBubbleProps) {
         )}
       </div>
       <div className="message-timestamp">
-        {message.timestamp.toLocaleTimeString(i18n.language, {
+        {message.timestamp.toLocaleTimeString('fr-CA', {
           hour: '2-digit',
           minute: '2-digit',
         })}

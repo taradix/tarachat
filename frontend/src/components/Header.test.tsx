@@ -11,7 +11,7 @@ describe('Header', () => {
   it('renders the subtitle', () => {
     render(<Header />)
     expect(
-      screen.getByText('Bylaws - Municipality of Notre-Dame-du-Laus'),
+      screen.getByText('Règlements - Municipalité de Notre-Dame-du-Laus'),
     ).toBeInTheDocument()
   })
 
