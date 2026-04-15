@@ -1,4 +1,6 @@
 name: tarachat
+include:
+  - path: ./taracert/compose.yml
 services:
   backend:
     build: backend
@@ -37,28 +39,6 @@ services:
     ulimits:
       memlock: -1
       stack: 67108864
-
-  certbot:
-    image: certbot/certbot:v5.5.0
-    volumes:
-      - ./certbot/deploy-hook.sh:/deploy-hook.sh:ro
-      - certbot-certs:/etc/letsencrypt
-      - certbot-www:/var/www/html
-    environment:
-      SERVER_HOSTNAME: ${SERVER_HOSTNAME}
-    command: >
-      sh -c "trap exit TERM; while :; do
-        certbot renew --webroot --webroot-path=/var/www/html --deploy-hook /deploy-hook.sh;
-        sleep 12h;
-      done"
-    entrypoint: ""
-    restart: always
-    healthcheck:
-      test: [ "CMD", "test", "-e", "/etc/letsencrypt/live/fullchain.pem" ]
-      start_period: 10s
-      interval: 10s
-      timeout: 5s
-      retries: 15
 
   frontend:
     build: frontend
@@ -132,6 +112,4 @@ volumes:
   backend-cache:
   backend-data:
   backend-docs:
-  certbot-www:
-  certbot-certs:
   ollama-models:
