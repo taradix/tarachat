@@ -1,12 +1,12 @@
 [project]
 name = "tarachat"
 version = "0.1.0"
-description = "RAG chatbot backend with CroissantLLM."
+description = "Chatbot for Taram regulations."
 authors = [
     {name = "Marc Tardif", email = "marc@taram.ca"},
 ]
 readme = "README.rst"
-repository = "https://github.com/cr3/tarachat"
+repository = "https://github.com/taradix/tarachat"
 packages = [
     {include = "tarachat"},
 ]
