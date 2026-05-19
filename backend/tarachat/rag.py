@@ -393,7 +393,7 @@ class RAGPipeline:
         if settings.reranker_model:
             from sentence_transformers import CrossEncoder
             logger.info(f"Loading reranker model: {settings.reranker_model}")
-            reranker = Reranker(model=CrossEncoder(settings.reranker_model, device="cpu"))
+            reranker = Reranker(model=CrossEncoder(settings.reranker_model, device=device))
 
         logger.info(f"Using Ollama model: {settings.ollama_model} at {settings.ollama_url}")
         generator = OllamaGenerator(settings=settings)
