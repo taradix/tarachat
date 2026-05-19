@@ -7,6 +7,12 @@ import './Chat.css';
 
 const ERROR_MESSAGE = "Désolé, une erreur s'est produite. Veuillez vous assurer que le serveur est en marche et réessayer.";
 
+const SUGGESTED_QUESTIONS = [
+  'À quelle distance puis-je construire de la rive?',
+  'Quelles sont les règles concernant les clôtures et haies?',
+  'Quelles sont les heures permises pour les travaux bruyants?',
+];
+
 function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -108,6 +114,19 @@ function Chat() {
     <div className="chat">
       <div className="chat-container">
         <MessageList messages={messages} isLoading={isLoading} />
+        {messages.length === 0 && !isLoading && (
+          <div className="suggested-questions">
+            {SUGGESTED_QUESTIONS.map((question) => (
+              <button
+                key={question}
+                className="suggested-question"
+                onClick={() => handleSendMessage(question)}
+              >
+                {question}
+              </button>
+            ))}
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
       <MessageInput onSendMessage={handleSendMessage} disabled={isLoading} />
