@@ -18,7 +18,7 @@ def project():
 @pytest.fixture(scope="session")
 def env_file(project, request):
     """Environment file for compose services."""
-    env_file = request.config.cache.makedir("compose") / "env"
+    env_file = request.config.cache.makedir("tarachat") / "env"
     with env_file.open("w") as f:
         f.write(f"COMPOSE_PROJECT_NAME={project}\n")
     return env_file
