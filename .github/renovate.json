@@ -13,5 +13,11 @@
   "automergeType": "pr",
   "automergeStrategy": "squash",
   "platformAutomerge": false,
-  "recreateWhen": "always"
+  "recreateWhen": "always",
+  "packageRules": [
+    {
+      "matchPackageNames": ["typescript", "typescript-eslint"],
+      "groupName": "typescript"
+    }
+  ]
 }
