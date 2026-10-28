@@ -8,7 +8,7 @@ services:
     command: uvicorn --host=0.0.0.0 --port=80 tarachat.app:app --log-config=/app/log-config.dev.yaml --reload
 
   frontend:
-    image: node:24-alpine
+    image: node:26-alpine
     volumes:
       - ./frontend:/app
       - /app/node_modules

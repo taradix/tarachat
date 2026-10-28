@@ -16,7 +16,7 @@ jobs:
       - name: Set up Node environment
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
 
       - name: Set up Python environment
         uses: ./.github/actions/setup-uv-env
@@ -121,7 +121,7 @@ jobs:
       - name: Set up Node environment
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 26
 
       - name: Run coverage target
         working-directory: frontend
