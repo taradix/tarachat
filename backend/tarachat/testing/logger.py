@@ -1,7 +1,7 @@
 """Logger testing module."""
 
 from contextlib import contextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from logging import Handler
 from unittest.mock import patch
 
@@ -29,4 +29,4 @@ def logger_time(seconds=0.0):
     with patch("logging.time.time") as mock_time, patch("logging.time.time_ns") as mock_time_ns:
         mock_time.return_value = seconds
         mock_time_ns.return_value = seconds
-        yield datetime.fromtimestamp(seconds, timezone.utc)
+        yield datetime.fromtimestamp(seconds, UTC)

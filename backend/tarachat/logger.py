@@ -58,7 +58,7 @@ import sys
 from argparse import Action
 from contextlib import contextmanager
 from contextvars import ContextVar
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import ClassVar
 
 DEFAULT_LEVEL = logging.INFO
@@ -68,7 +68,7 @@ class LoggerFormatter(logging.Formatter):
     """Logger formatter with sensible defaults."""
 
     def converter(self, t):  # type: ignore[override]
-        return datetime.fromtimestamp(t, timezone.utc)
+        return datetime.fromtimestamp(t, UTC)
 
     def __init__(self, fmt=None, datefmt=None):
         """Initialize a formatter with default fmt and datefmt."""
