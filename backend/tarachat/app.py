@@ -10,7 +10,7 @@ from fastapi.responses import Response, StreamingResponse
 from tarachat import pdf
 from tarachat.config import get_settings
 from tarachat.models import ChatRequest, HealthResponse
-from tarachat.rag import RAGProtocol, RAGPipeline, _detect_device
+from tarachat.rag import RAGPipeline, RAGProtocol, _detect_device
 
 logger = logging.getLogger(__name__)
 

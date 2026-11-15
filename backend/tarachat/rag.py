@@ -303,18 +303,17 @@ class OllamaGenerator:
             },
         }
         url = f"{self.settings.ollama_url}/api/chat"
-        with httpx.Client(timeout=300) as client:
-            with client.stream("POST", url, json=payload) as response:
-                response.raise_for_status()
-                for line in response.iter_lines():
-                    if not line:
-                        continue
-                    data = json.loads(line)
-                    if data.get("done"):
-                        break
-                    content = data.get("message", {}).get("content", "")
-                    if content:
-                        yield content
+        with httpx.Client(timeout=300) as client, client.stream("POST", url, json=payload) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                data = json.loads(line)
+                if data.get("done"):
+                    break
+                content = data.get("message", {}).get("content", "")
+                if content:
+                    yield content
 
 
 @define

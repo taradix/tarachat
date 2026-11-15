@@ -1,4 +1,4 @@
-FROM dustynv/pytorch:2.7-r36.4.0
+FROM dustynv/pytorch:2.7-r36.4.0-cu128-24.04
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
@@ -15,7 +15,7 @@ ENV UV_PYTHON_PREFERENCE=only-system
 
 WORKDIR /app
 
-# Venv inherits system torch and numpy (torch compiled against numpy 1.x)
+# Venv inherits system torch and numpy (torch compiled against the image numpy)
 RUN uv venv --system-site-packages
 
 COPY uv.lock pyproject.toml ./
