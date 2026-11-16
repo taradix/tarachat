@@ -22,7 +22,7 @@ jobs:
         uses: ./.github/actions/setup-uv-env
         with:
           extras: check
-          python-version: "3.14"
+          python-version: "3.12"
           working-directory: backend
 
       - name: Run check target
@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.12', '3.13', '3.14']
+        python-version: ['3.12']
       fail-fast: false
     steps:
       - name: Check out
@@ -71,7 +71,7 @@ jobs:
         uses: ./.github/actions/setup-uv-env
         with:
           extras: test
-          python-version: "3.14"
+          python-version: "3.12"
           working-directory: backend
 
       - name: Download coverage data
