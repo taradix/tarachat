@@ -18,6 +18,11 @@
     {
       "matchPackageNames": ["typescript", "typescript-eslint"],
       "groupName": "typescript"
+    },
+    {
+      "description": "Jetson Orin (NVIDIA) libraries require Python 3.12",
+      "matchPackageNames": ["python"],
+      "allowedVersions": "<3.13"
     }
   ]
 }
