@@ -1793,6 +1793,7 @@ dependencies = [
     { name = "rank-bm25" },
     { name = "requests" },
     { name = "sentence-transformers" },
+    { name = "taralog" },
     { name = "torch" },
     { name = "transformers" },
     { name = "uvicorn", extra = ["standard"] },
@@ -1842,12 +1843,22 @@ requires-dist = [
     { name = "requests", specifier = ">=2.32.5,<3.0.0" },
     { name = "ruff", marker = "extra == 'check'", specifier = ">=0.15.0,<1.0.0" },
     { name = "sentence-transformers", specifier = ">=6.3.0,<6.4.0" },
+    { name = "taralog", specifier = ">=0.1.0,<1.0.0" },
     { name = "torch", specifier = ">=2.1.0,<3.0.0" },
     { name = "transformers", specifier = ">=5.23.0,<5.24.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.27.0,<1.0.0" },
     { name = "yarl", specifier = ">=1.22.0,<2.0.0" },
 ]
 provides-extras = ["test", "check"]
+
+[[package]]
+name = "taralog"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ec/bc/0294d3bc8892b1f449f95f3a431a6382055f46562a0876e16ef85021b3dd/taralog-0.1.0.tar.gz", hash = "sha256:a68e6d3177afbf8666bb9a0cafebb2ffbafcffef18064687357d9cb781b006e8", size = 60095, upload-time = "2026-11-21T14:25:22.396Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/82/fe/55f3d6bd5f0f89799a84608247831ee93986d59658af0b303beae476d982/taralog-0.1.0-py3-none-any.whl", hash = "sha256:a96ab169e40d84b52913dd8f4ab7ee93a790ae140ce8f31e45a205aefc6f387e", size = 6093, upload-time = "2026-11-21T14:25:21.148Z" },
+]
 
 [[package]]
 name = "tenacity"

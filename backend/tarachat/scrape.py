@@ -11,13 +11,12 @@ from pathlib import Path
 import aiofiles
 import aiohttp
 from bs4 import BeautifulSoup
-from yarl import URL
-
-from tarachat.logger import (
+from taralog import (
     LoggerHandlerAction,
     LoggerLevelAction,
     setup_logger,
 )
+from yarl import URL
 
 logger = logging.getLogger(__name__)
 
