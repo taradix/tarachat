@@ -11,19 +11,15 @@ RUN apt-get update && apt-get install -y \
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-ENV UV_PYTHON_PREFERENCE=only-system
+ENV UV_PYTHON_PREFERENCE=only-system \
+    UV_PROJECT_ENVIRONMENT=/opt/venv
 
 WORKDIR /app
 
-# Venv inherits system torch and numpy (torch compiled against the image numpy)
-RUN uv venv --system-site-packages
-
 COPY uv.lock pyproject.toml ./
-RUN uv sync --frozen --no-install-project --no-install-package torch --no-install-package numpy
+RUN uv sync --frozen --inexact --no-install-project --no-install-package torch --no-install-package numpy
 
 COPY . ./
-RUN uv sync --frozen --no-install-package torch --no-install-package numpy
-
-ENV PATH="/app/.venv/bin:$PATH"
+RUN uv sync --frozen --inexact --no-install-package torch --no-install-package numpy
 
 EXPOSE 80
