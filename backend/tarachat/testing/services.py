@@ -1,12 +1,11 @@
 """Service fixtures for docker compose integration tests."""
 
 from functools import partial
-from pathlib import Path
 
 import pytest
+from pytest_xdocker.compose import ComposeServer, find_compose_files
 from yarl import URL
 
-from tarachat.testing.compose import ComposeServer
 from tarachat.testing.http import HTTPSession
 
 
@@ -26,20 +25,7 @@ def env_file(project, request):
 
 @pytest.fixture(scope="session")
 def compose_files(request):
-    directory = Path(request.config.rootdir)
-    filenames = ["docker-compose.yml", "compose.yaml", "compose.yml"]
-    while True:
-        for filename in filenames:
-            path = directory / filename
-            if path.exists():
-                all_files = directory.glob(f"{path.stem}.*")
-                ordered_files = sorted(all_files, key=lambda p: len(p.name))
-                return list(ordered_files)
-
-        if directory == directory.parent:
-            raise FileNotFoundError("Docker compose file not found")
-
-        directory = directory.parent
+    return find_compose_files(request.config.rootdir)
 
 
 @pytest.fixture(scope="session")
