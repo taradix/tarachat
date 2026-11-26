@@ -24,17 +24,12 @@ def env_file(project, request):
 
 
 @pytest.fixture(scope="session")
-def compose_files(request):
-    return find_compose_files(request.config.rootdir)
-
-
-@pytest.fixture(scope="session")
-def compose_server(project, env_file, compose_files, process):
+def compose_server(project, env_file, process, request):
     return partial(
         ComposeServer,
         project=project,
         env_file=env_file,
-        compose_files=compose_files,
+        compose_files=find_compose_files(request.config.rootdir),
         process=process,
     )
 
