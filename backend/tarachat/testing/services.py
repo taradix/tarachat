@@ -81,5 +81,6 @@ def nginx_service(certbot_service, compose_server):
 @pytest.fixture
 def nginx_client(nginx_service):
     """Client to the nginx service fixture, over the self-signed dev cert."""
-    with httpx.Client(base_url=f"https://{nginx_service.ip}", timeout=5.0, verify=False) as client:  # noqa: S501
+    base_url = f"https://{nginx_service.ip}"
+    with httpx.Client(base_url=base_url, timeout=5.0, verify=False) as client:  # noqa: S501
         yield client
