@@ -1,4 +1,4 @@
-name: tarachat
+name: tarachat-test
 include:
   - path: ./taracert/compose.dev.yml
 services:

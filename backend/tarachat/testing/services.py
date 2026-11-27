@@ -11,25 +11,18 @@ from tarachat.testing.http import HTTPSession
 
 
 @pytest.fixture(scope="session")
-def project():
-    return "test"
-
-
-@pytest.fixture(scope="session")
-def env_file(project, request):
+def env_file(request):
     """Environment file for compose services."""
     env_file = request.config.cache.makedir("tarachat") / "env"
     with env_file.open("w") as f:
-        f.write(f"COMPOSE_PROJECT_NAME={project}\n")
         f.write("SERVER_HOSTNAME=test.local\n")
     return env_file
 
 
 @pytest.fixture(scope="session")
-def compose_server(project, env_file, process, request):
+def compose_server(env_file, process, request):
     return partial(
         ComposeServer,
-        project=project,
         env_file=env_file,
         compose_files=find_compose_files(request.config.rootdir),
         process=process,
