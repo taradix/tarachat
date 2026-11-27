@@ -2,6 +2,7 @@
 
 from functools import partial
 
+import httpx
 import pytest
 from pytest_xdocker.compose import ComposeServer, find_compose_files
 from yarl import URL
@@ -20,6 +21,7 @@ def env_file(project, request):
     env_file = request.config.cache.makedir("tarachat") / "env"
     with env_file.open("w") as f:
         f.write(f"COMPOSE_PROJECT_NAME={project}\n")
+        f.write("SERVER_HOSTNAME=test.local\n")
     return env_file
 
 
@@ -47,3 +49,37 @@ def api_session(backend_service):
     """HTTP session connected to the backend API."""
     url = URL.build(scheme="http", host=backend_service.ip, port=8000)
     return HTTPSession(url)
+
+
+class NoDepsComposeServer(ComposeServer):
+    """Compose server that doesn't start the service dependencies."""
+
+    def prepare_func(self, controldir):
+        data = super().prepare_func(controldir)
+        return data._replace(args=data.args.with_optionals("--no-deps"))
+
+
+@pytest.fixture(scope="session")
+def certbot_service(compose_server):
+    """Certbot service fixture, with a self-signed dev cert."""
+    server = compose_server("Ready")
+    with server.run("certbot") as service:
+        yield service
+
+
+@pytest.fixture(scope="session")
+def nginx_service(certbot_service, compose_server):
+    """Nginx service fixture.
+
+    Skips the backend and ollama dependencies, which need an nvidia runtime.
+    """
+    server = NoDepsComposeServer("start worker process", **compose_server.keywords)
+    with server.run("nginx") as service:
+        yield service
+
+
+@pytest.fixture
+def nginx_client(nginx_service):
+    """Client to the nginx service fixture, over the self-signed dev cert."""
+    with httpx.Client(base_url=f"https://{nginx_service.ip}", timeout=5.0, verify=False) as client:  # noqa: S501
+        yield client
