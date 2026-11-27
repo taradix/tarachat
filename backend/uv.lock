@@ -1416,7 +1416,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/d1/15/082fd0428aab33d2b
 
 [[package]]
 name = "pytest-xdocker"
-version = "0.4.0"
+version = "0.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -1427,9 +1427,9 @@ dependencies = [
     { name = "pytest-cache" },
     { name = "pytest-xprocess" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6f/d1/b25b13bd200e060cc984d1dfab0a606b858d1535b6be018002e7a778913e/pytest_xdocker-0.4.0.tar.gz", hash = "sha256:7c4f7c20e2f4104a21f83f8ba8bcb2d803b525d0aa977608ae31e24d29a43fe6", size = 105956, upload-time = "2026-11-26T20:36:44.626Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/32/60134cc51a8ea08d8f2086e2b26aa5884427f5e939ef86201c4154f5b507/pytest_xdocker-0.4.2.tar.gz", hash = "sha256:08cedd62e928072dcb576eda8ef14fa79190036e0626bb3c6603611b4a62f2f0", size = 106183, upload-time = "2026-11-27T21:34:08.968Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c9/e3/87b9f936f861fa20e26d23de5b7eec3075941c4d342141420809c744304b/pytest_xdocker-0.4.0-py3-none-any.whl", hash = "sha256:8cf8e8c262e2e2bf304e83fcd8336c4cd115935493cdec76b1bf560cd42bb07b", size = 21881, upload-time = "2026-11-26T20:36:43.764Z" },
+    { url = "https://files.pythonhosted.org/packages/9a/a2/099f60d8a6ec6371512d0f4dbd72962ff3c57e7cd95f2047e91dcae03b42/pytest_xdocker-0.4.2-py3-none-any.whl", hash = "sha256:5e3c8b104c6d1fcad84f2aab8a922d5d4eb79f6e8dabef7031dd55706585d614", size = 22058, upload-time = "2026-11-27T21:34:08.019Z" },
 ]
 
 [[package]]
@@ -1825,7 +1825,7 @@ requires-dist = [
     { name = "pymupdf", specifier = ">=2.2,<2.3" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=7.4.0,<10.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=1.5.0,<1.6.0" },
-    { name = "pytest-xdocker", marker = "extra == 'test'", specifier = ">=0.4.0,<1.0.0" },
+    { name = "pytest-xdocker", marker = "extra == 'test'", specifier = ">=0.4.2,<1.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2.0.0" },
     { name = "python-multipart", specifier = ">=0.0.6,<1.0.0" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
